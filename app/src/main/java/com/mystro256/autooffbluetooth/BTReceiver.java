@@ -35,14 +35,20 @@ public class BTReceiver extends BroadcastReceiver {
 
         boolean isConnectedOrConnecting = false;
 
-        // Check standard profiles
-        int[] profiles = {BluetoothProfile.A2DP, BluetoothProfile.HEADSET, BluetoothProfile.HEALTH};
+        // Add GATT (Low Energy) profiles to the check list.
+        int[] profiles = {
+            BluetoothProfile.A2DP, 
+            BluetoothProfile.HEADSET, 
+            BluetoothProfile.HEALTH,
+            BluetoothProfile.GATT,       // Added for BLE devices (Watches)
+            BluetoothProfile.GATT_SERVER // Added for BLE server role
+        };
         
         for (int profileId : profiles) {
+            // Note: getProfileConnectionState is deprecated in API 31+, 
+            // but is the correct method for this approach on older/mixed APIs.
             int state = adapter.getProfileConnectionState(profileId);
             
-            // IMPROVEMENT 1: Also check if we are currently "CONNECTING"
-            // This prevents cutting off the radio while the car is trying to handshake
             if (state == BluetoothProfile.STATE_CONNECTED || state == BluetoothProfile.STATE_CONNECTING) {
                 isConnectedOrConnecting = true;
                 break;
@@ -50,11 +56,10 @@ public class BTReceiver extends BroadcastReceiver {
         }
 
         if (isConnectedOrConnecting) {
-            // IMPROVEMENT 2: Connection found! Cancel any pending shutdown command.
+            // Connection found! Cancel any pending shutdown command.
             handler.removeCallbacks(shutdownTask);
         } else {
-            // IMPROVEMENT 3: No connection found. 
-            // Don't turn off immediately. Wait 20 seconds (20000ms).
+            // No connection found. Wait 20 seconds.
             // First, remove any existing callbacks to reset the timer (debounce)
             handler.removeCallbacks(shutdownTask);
             handler.postDelayed(shutdownTask, 20000);
