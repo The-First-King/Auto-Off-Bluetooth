@@ -1,15 +1,16 @@
 package com.mystro256.autooffbluetooth;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
-
+import androidx.core.content.ContextCompat;
 import java.lang.reflect.Method;
 import java.util.Set;
 
@@ -21,9 +22,11 @@ public class BTReceiver extends BroadcastReceiver {
         @Override
         public void run() {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-            // Final check right before turning off.
-            if (adapter != null && adapter.isEnabled() && !isAnyDeviceConnected(adapter)) {
-                adapter.disable();
+            if (adapter != null && adapter.isEnabled()) {
+                try {
+                    adapter.disable();
+                } catch (SecurityException e) {
+                }
             }
         }
     };
@@ -33,45 +36,48 @@ public class BTReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 
-        if (adapter == null || !adapter.isEnabled()) {
-            return;
+        if (adapter == null || !adapter.isEnabled()) return;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) 
+                != PackageManager.PERMISSION_GRANTED) {
+                return; 
+            }
         }
 
-        // If connected to something, CANCEL the timer immediately.
         if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
             handler.removeCallbacks(shutdownTask);
             return;
         }
 
-        // If disconnected, or something else happened, check if ANYTHING is still alive.
-        if (isAnyDeviceConnected(adapter)) {
+        if (isAnyDeviceConnected(context, adapter)) {
             handler.removeCallbacks(shutdownTask);
         } else {
-            // Nothing found. Start the countdown.
             handler.removeCallbacks(shutdownTask);
-            handler.postDelayed(shutdownTask, 20000); // 20 seconds
+            handler.postDelayed(shutdownTask, 20000);
         }
     }
 
-    // Helper to check connections.
-    private static boolean isAnyDeviceConnected(BluetoothAdapter adapter) {
-        // Check Standard Profiles (Headsets, Audio).
+    private static boolean isAnyDeviceConnected(Context context, BluetoothAdapter adapter) {
+        // Standard Profiles
         int[] profiles = {BluetoothProfile.A2DP, BluetoothProfile.HEADSET, BluetoothProfile.HEALTH};
         for (int profileId : profiles) {
-            if (adapter.getProfileConnectionState(profileId) == BluetoothProfile.STATE_CONNECTED) {
-                return true;
-            }
-        }
-
-        // Check Bonded Devices. This catches devices that don't report standard profiles.
-        Set<BluetoothDevice> bondedDevices = adapter.getBondedDevices();
-        if (bondedDevices != null) {
-            for (BluetoothDevice device : bondedDevices) {
-                if (isConnectedReflection(device)) {
+            try {
+                if (adapter.getProfileConnectionState(profileId) == BluetoothProfile.STATE_CONNECTED) {
                     return true;
                 }
-            }
+            } catch (SecurityException e) { return false; }
         }
+
+        // Bonded Devices
+        try {
+            Set<BluetoothDevice> bondedDevices = adapter.getBondedDevices();
+            if (bondedDevices != null) {
+                for (BluetoothDevice device : bondedDevices) {
+                    if (isConnectedReflection(device)) return true;
+                }
+            }
+        } catch (SecurityException e) { return false; }
+        
         return false;
     }
 
