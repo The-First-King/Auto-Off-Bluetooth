@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.view.View; // Added for the button click
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,11 +26,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // Check and request Bluetooth permissions (Required for Android 12+)
         checkAndRequestPermissions();
+    }
 
-        // Request Battery Optimization Exemption
+    public void disableBatteryOptimization(View view) {
         requestIgnoreBatteryOptimizations();
     }
 
@@ -52,13 +52,15 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestIgnoreBatteryOptimizations() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Intent intent = new Intent();
             String packageName = getPackageName();
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
             if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
+                Intent intent = new Intent();
                 intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                 intent.setData(Uri.parse("package:" + packageName));
                 startActivity(intent);
+            } else {
+                Toast.makeText(this, "Battery optimization is already disabled.", Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -75,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             if (!allGranted) {
-                Toast.makeText(this, "Bluetooth permissions are required to monitor your watch.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Nearby Devices permission is required for watch detection.", Toast.LENGTH_LONG).show();
             }
         }
     }
