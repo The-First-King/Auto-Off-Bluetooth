@@ -20,18 +20,21 @@ public class BTReceiver extends BroadcastReceiver {
     private static final String TAG = "BTReceiver";
     private static final Handler handler = new Handler(Looper.getMainLooper());
 
-    // Task that actually turns off Bluetooth
     private static final Runnable shutdownTask = new Runnable() {
         @Override
         public void run() {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
             if (adapter != null && adapter.isEnabled()) {
-                // Final double-check: ensure nothing connected in the last 20 seconds
-                Log.d(TAG, "Countdown finished. Disabling Bluetooth...");
-                try {
-                    adapter.disable();
-                } catch (SecurityException e) {
-                    Log.e(TAG, "SecurityException: Cannot disable BT. Ensure permission is granted.");
+                // If nothing has reconnected in 20 seconds, disable Bluetooth.
+                if (!isAnyDeviceConnected(adapter)) {
+                    Log.d(TAG, "Confirmed: No devices. Turning off Bluetooth.");
+                    try {
+                        adapter.disable();
+                    } catch (SecurityException e) {
+                        Log.e(TAG, "Permission denied for disable()");
+                    }
+                } else {
+                    Log.d(TAG, "Device reconnected during countdown. Aborting shutdown.");
                 }
             }
         }
@@ -43,75 +46,62 @@ public class BTReceiver extends BroadcastReceiver {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 
         if (adapter == null || !adapter.isEnabled()) return;
-
-        // Security Check for Android 12+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) 
-                != PackageManager.PERMISSION_GRANTED) {
-                Log.e(TAG, "Missing BLUETOOTH_CONNECT permission. Cannot run logic.");
-                return; 
-            }
+                != PackageManager.PERMISSION_GRANTED) return;
         }
 
-        // Stop timer if Bluetooth is already being turned off manually
-        if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
-            int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
-            if (state == BluetoothAdapter.STATE_TURNING_OFF || state == BluetoothAdapter.STATE_OFF) {
-                handler.removeCallbacks(shutdownTask);
-                return;
-            }
+        Log.d(TAG, "Received Broadcast: " + action);
+
+        // If a device connects, always stop the timer immediately.
+        if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+            Log.d(TAG, "ACL_CONNECTED: Stopping timer.");
+            handler.removeCallbacks(shutdownTask);
+            return;
         }
 
-        Log.d(TAG, "Action received: " + action);
-
-        // Check if any device is currently active
-        if (isAnyDeviceConnected(context, adapter)) {
-            Log.d(TAG, "Device(s) currently connected. Cancelling countdown.");
-            handler.removeCallbacks(shutdownTask);
-        } else {
-            Log.d(TAG, "No active connections detected. Starting 20s countdown.");
-            handler.removeCallbacks(shutdownTask);
-            handler.postDelayed(shutdownTask, 20000);
+        // If a device disconnects.
+        if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action) || 
+            BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
+            
+            Log.d(TAG, "ACL_DISCONNECTED: Triggering 20s countdown.");
+            
+            // We wait 2 seconds before checking "isAnyDeviceConnected" to let the stack finish the disconnection process.
+            handler.postDelayed(() -> {
+                if (!isAnyDeviceConnected(adapter)) {
+                    handler.removeCallbacks(shutdownTask);
+                    handler.postDelayed(shutdownTask, 20000);
+                }
+            }, 2000);
         }
     }
 
-    private static boolean isAnyDeviceConnected(Context context, BluetoothAdapter adapter) {
-        // Check Standard Profiles
-        int[] profiles = {
-            BluetoothProfile.A2DP,      // 2: Standard Media Audio
-            BluetoothProfile.HEADSET,   // 1: Phone Calls
-            BluetoothProfile.GATT,      // 7: Data Sync (Watches/Apps)
-            4,                          // HID_HOST: Keyboards/Headphone Buttons
-            5                           // PAN: Personal Area Networking
-        };
+    private static boolean isAnyDeviceConnected(BluetoothAdapter adapter) {
+        // Standard Profiles: 1=Headset, 2=A2DP, 7=GATT, 4=HID, 5=PAN.
+        int[] profiles = {1, 2, 7, 4, 5};
         
         for (int profileId : profiles) {
             try {
                 int state = adapter.getProfileConnectionState(profileId);
-                // If connected or connecting, consider a device present
-                if (state == BluetoothProfile.STATE_CONNECTED || state == BluetoothProfile.STATE_CONNECTING) {
-                    Log.d(TAG, "Connection active on profile ID: " + profileId);
+                if (state == BluetoothProfile.STATE_CONNECTED) {
+                    Log.d(TAG, "Active Profile Found: " + profileId);
                     return true;
                 }
-            } catch (Exception e) {
-                // Profile not supported on this specific hardware
-            }
+            } catch (Exception e) { }
         }
 
-        // Check Bonded Devices via Reflection
+        // Bonded Reflection.
         try {
             Set<BluetoothDevice> bondedDevices = adapter.getBondedDevices();
             if (bondedDevices != null) {
                 for (BluetoothDevice device : bondedDevices) {
                     if (isConnectedReflection(device)) {
-                        Log.d(TAG, "Device connected (Reflection): " + device.getName());
+                        Log.d(TAG, "Active Device Found (Reflection): " + device.getName());
                         return true;
                     }
                 }
             }
-        } catch (SecurityException e) {
-            Log.e(TAG, "SecurityException checking bonded devices.");
-        }
+        } catch (SecurityException e) { }
         
         return false;
     }
