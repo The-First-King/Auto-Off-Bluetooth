@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
+
 import java.lang.reflect.Method;
 import java.util.Set;
 
@@ -19,7 +21,8 @@ public class BTReceiver extends BroadcastReceiver {
         @Override
         public void run() {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-            if (adapter != null && adapter.isEnabled()) {
+            // Final check right before turning off.
+            if (adapter != null && adapter.isEnabled() && !isAnyDeviceConnected(adapter)) {
                 adapter.disable();
             }
         }
@@ -27,48 +30,52 @@ public class BTReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 
         if (adapter == null || !adapter.isEnabled()) {
             return;
         }
 
-        boolean activeConnectionFound = false;
-
-        // Check Classic Profiles (Audio/Headset)
-        int[] profiles = {BluetoothProfile.A2DP, BluetoothProfile.HEADSET, BluetoothProfile.HEALTH};
-        for (int profileId : profiles) {
-            int state = adapter.getProfileConnectionState(profileId);
-            if (state == BluetoothProfile.STATE_CONNECTED || state == BluetoothProfile.STATE_CONNECTING) {
-                activeConnectionFound = true;
-                break;
-            }
+        // If connected to something, CANCEL the timer immediately.
+        if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+            handler.removeCallbacks(shutdownTask);
+            return;
         }
 
-        // Iterate Paired Devices to catch BLE
-        if (!activeConnectionFound) {
-            Set<BluetoothDevice> pairedDevices = adapter.getBondedDevices();
-            if (pairedDevices != null) {
-                for (BluetoothDevice device : pairedDevices) {
-                    if (isDeviceConnected(device)) {
-                        activeConnectionFound = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (activeConnectionFound) {
-            // Device found! Cancel shutdown.
+        // If disconnected, or something else happened, check if ANYTHING is still alive.
+        if (isAnyDeviceConnected(adapter)) {
             handler.removeCallbacks(shutdownTask);
         } else {
-            // No active device found. Schedule shutdown in 20s.
+            // Nothing found. Start the countdown.
             handler.removeCallbacks(shutdownTask);
-            handler.postDelayed(shutdownTask, 20000);
+            handler.postDelayed(shutdownTask, 20000); // 20 seconds
         }
     }
 
-    private boolean isDeviceConnected(BluetoothDevice device) {
+    // Helper to check connections.
+    private static boolean isAnyDeviceConnected(BluetoothAdapter adapter) {
+        // Check Standard Profiles (Headsets, Audio).
+        int[] profiles = {BluetoothProfile.A2DP, BluetoothProfile.HEADSET, BluetoothProfile.HEALTH};
+        for (int profileId : profiles) {
+            if (adapter.getProfileConnectionState(profileId) == BluetoothProfile.STATE_CONNECTED) {
+                return true;
+            }
+        }
+
+        // Check Bonded Devices. This catches devices that don't report standard profiles.
+        Set<BluetoothDevice> bondedDevices = adapter.getBondedDevices();
+        if (bondedDevices != null) {
+            for (BluetoothDevice device : bondedDevices) {
+                if (isConnectedReflection(device)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isConnectedReflection(BluetoothDevice device) {
         try {
             Method m = device.getClass().getMethod("isConnected");
             return (boolean) m.invoke(device);
