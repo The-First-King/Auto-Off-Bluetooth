@@ -6,7 +6,7 @@ android {
 
     defaultConfig {
         applicationId "com.mystro256.autooffbluetooth"
-        minSdkVersion 21   // Increased for better modern compatibility
+        minSdkVersion 15
         targetSdkVersion 31 
         versionCode 6
         versionName "1.5"
