@@ -3,22 +3,18 @@
 buildscript {
     repositories {
         google()
-        jcenter()
-        
+        mavenCentral() // Replaced jcenter() as it is deprecated
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.1.1'
-        
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
+        // Updated from 4.1.1 to 7.0.2 to support Android 12+ features
+        classpath 'com.android.tools.build:gradle:7.0.2'
     }
 }
 
 allprojects {
     repositories {
         google()
-        jcenter()
-        
+        mavenCentral()
     }
 }
 
