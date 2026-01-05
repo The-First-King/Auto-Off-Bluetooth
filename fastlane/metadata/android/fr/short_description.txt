@@ -1,1 +1,0 @@
-Désactiver automatiquement Bluetooth lors de la déconnexion

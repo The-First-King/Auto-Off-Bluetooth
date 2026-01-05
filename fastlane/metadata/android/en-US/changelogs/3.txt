@@ -1,2 +1,0 @@
-* Detects and suggests disabling battery optimization if available
-* Built with newer tools
