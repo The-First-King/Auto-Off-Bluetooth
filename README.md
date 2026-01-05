@@ -22,8 +22,8 @@ The app requires the following permissions to manage your Bluetooth hardware:
 
 ## Installation & License
 
-<a href="https://github.com/The-First-King/Auto-Sleep/releases"><img src="images/GitHub.png" alt="Get it on GitHub" height="60"></a>
-<a href="https://apt.izzysoft.de/packages/com.mine.autosleep"><img src="images/IzzyOnDroid.png" alt="Get it at IzzyOnDroid" height="60"></a>
+<a href="https://github.com/The-First-King/Auto-Off-Bluetooth/releases"><img src="images/GitHub.png" alt="Get it on GitHub" height="60"></a>
+<a href="https://apt.izzysoft.de/packages/com.mine.autooffbluetooth"><img src="images/IzzyOnDroid.png" alt="Get it at IzzyOnDroid" height="60"></a>
 
 ---
 
