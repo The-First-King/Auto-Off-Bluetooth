@@ -1,0 +1,57 @@
+name: Android CI Build Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Sign APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Rename and Strip Dots
+        id: rename_apk
+        run: |
+        
+          raw_tag=${GITHUB_REF#refs/tags/}
+          clean_tag="${raw_tag//./}"
+          signed_file="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          new_name="auto-off-bluetooth-${clean_tag}.apk"
+          mv "$signed_file" "app/build/outputs/apk/release/$new_name"
+          echo "new_path=app/build/outputs/apk/release/$new_name" >> $GITHUB_OUTPUT
+
+      - name: Upload Signed APK to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ steps.rename_apk.outputs.new_path }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
