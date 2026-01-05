@@ -5,7 +5,7 @@ android {
     compileSdkVersion 31
 
     defaultConfig {
-        applicationId "com.mystro256.autooffbluetooth"
+        applicationId "com.mine.autooffbluetooth"
         minSdkVersion 15
         targetSdkVersion 31 
         versionCode 6
