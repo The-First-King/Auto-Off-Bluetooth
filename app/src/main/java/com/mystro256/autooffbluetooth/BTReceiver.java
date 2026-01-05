@@ -1,4 +1,4 @@
-package com.mystro256.autooffbluetooth;
+package com.mine.autooffbluetooth;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
