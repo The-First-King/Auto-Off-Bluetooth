@@ -1,1 +1,15 @@
-1
+Auto Off Bluetooth
+
+Auto Off Bluetooth is a lightweight utility for Android designed to preserve battery life and increase device security. The app monitors your Bluetooth connection status and automatically turns off the Bluetooth radio after 20 seconds if no devices are connected.
+
+How it works
+
+The app listens for Bluetooth state changes in the stack and for Asynchronous Connection-Less disconnection events in the background. When a device disconnects, the app starts a timer. If the timer expires without a reconnection, the app automatically disables the Bluetooth adapter to save power. If a Bluetooth device reconnects, the app postpones the Auto Off task until the next disconnect.
+
+Permissions
+
+The app requires the following permissions to manage your Bluetooth hardware:
+
+* BLUETOOTH: Allows the app to see the status of connections.
+* BLUETOOTH_ADMIN: Allows the app to toggle the Bluetooth radio on/off.
+* BLUETOOTH_CONNECT: To interact with paired devices (required for Android 12+).
