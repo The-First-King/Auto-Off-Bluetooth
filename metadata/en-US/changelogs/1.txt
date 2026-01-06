@@ -1,1 +1,1 @@
-1
+Initial release of the Auto Off Bluetooth application that is available in F-Droid repository, but seems being abandoned by its author. The app is built from the source code based on the 1.4 codebase with improved algorithm logic and Android newer versions compatibility.
