@@ -1,7 +1,6 @@
 package com.mine.autooffbluetooth;
 
 import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -19,7 +18,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,10 +54,6 @@ public class MainActivity extends AppCompatActivity {
 
                 if (isChecked) {
                     Toast.makeText(MainActivity.this, "Inactivity timer enabled", Toast.LENGTH_SHORT).show();
-                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                    if (adapter != null && adapter.isEnabled()) {
-                        inactivityTimer.startTimer();
-                    }
                 } else {
                     Toast.makeText(MainActivity.this, "Inactivity timer disabled", Toast.LENGTH_SHORT).show();
                     inactivityTimer.cancelTimer();
