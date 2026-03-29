@@ -8,15 +8,13 @@
     tools:context=".MainActivity">
 
     <!-- Inactivity Switch Section -->
-    <androidx.appcompat.widget.SwitchCompat
+    <Switch
         android:id="@+id/inactivitySwitch"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/inactivitySwitchLabel"
         android:padding="16dp"
-        app:switchPadding="16dp"
-        app:track="@drawable/switch_track"
-        app:thumb="@drawable/switch_thumb"
+        android:theme="@style/SwitchTheme"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintLeft_toLeftOf="parent" />
 
