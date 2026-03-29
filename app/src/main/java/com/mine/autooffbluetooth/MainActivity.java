@@ -86,10 +86,6 @@ public class MainActivity extends AppCompatActivity {
                                                 " and " + InactivityTimer.getMaxInactivityMinutes(),
                                         Toast.LENGTH_SHORT).show();
                                 inactivityTimeInput.setText(String.valueOf(inactivityTimer.getInactivityTime()));
-                            } else {
-                                if (inactivitySwitch.isChecked() && inactivityTimer.isTimerRunning()) {
-                                    inactivityTimer.startTimer();
-                                }
                             }
                         } catch (NumberFormatException e) {
                         }
