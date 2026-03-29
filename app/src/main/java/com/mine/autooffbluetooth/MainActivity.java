@@ -1,6 +1,7 @@
 package com.mine.autooffbluetooth;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -10,6 +11,7 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Switch;
@@ -80,6 +82,14 @@ public class MainActivity extends AppCompatActivity {
                                                 " and " + InactivityTimer.getMaxInactivityMinutes(),
                                         Toast.LENGTH_SHORT).show();
                                 inactivityTimeInput.setText(String.valueOf(inactivityTimer.getInactivityTime()));
+                            } else {
+                                BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                                if (inactivitySwitch.isChecked() && adapter != null && adapter.isEnabled() && inactivityTimer.isTimerRunning()) {
+                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - restarting timer (Bluetooth is ON)");
+                                    inactivityTimer.startTimer();
+                                } else {
+                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - preference saved (will apply when Bluetooth turns ON)");
+                                }
                             }
                         } catch (NumberFormatException e) {
                         }
