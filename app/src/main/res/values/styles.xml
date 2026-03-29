@@ -8,4 +8,10 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <!-- Green Switch Theme -->
+    <style name="SwitchTheme" parent="Theme.AppCompat.Light">
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <item name="colorSwitchThumbNormal">@color/colorPrimary</item>
+    </style>
+
 </resources>
