@@ -56,9 +56,17 @@ public class MainActivity extends AppCompatActivity {
 
                 if (isChecked) {
                     Toast.makeText(MainActivity.this, "Inactivity timer enabled", Toast.LENGTH_SHORT).show();
+                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                    if (adapter != null && adapter.isEnabled()) {
+                        Log.d("MainActivity", "Switch toggled ON - Bluetooth is ON, starting timer");
+                        inactivityTimer.startTimer();
+                    } else {
+                        Log.d("MainActivity", "Switch toggled ON - Bluetooth is OFF, timer will start when Bluetooth turns ON");
+                    }
                 } else {
                     Toast.makeText(MainActivity.this, "Inactivity timer disabled", Toast.LENGTH_SHORT).show();
                     inactivityTimer.cancelTimer();
+                    Log.d("MainActivity", "Switch toggled OFF - timer cancelled");
                 }
             });
 
