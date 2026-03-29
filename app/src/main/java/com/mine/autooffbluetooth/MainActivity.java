@@ -84,11 +84,11 @@ public class MainActivity extends AppCompatActivity {
                                 inactivityTimeInput.setText(String.valueOf(inactivityTimer.getInactivityTime()));
                             } else {
                                 BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                                if (inactivitySwitch.isChecked() && adapter != null && adapter.isEnabled() && inactivityTimer.isTimerRunning()) {
-                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - restarting timer (Bluetooth is ON)");
+                                if (inactivitySwitch.isChecked() && adapter != null && adapter.isEnabled()) {
+                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - restarting timer");
                                     inactivityTimer.startTimer();
                                 } else {
-                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - preference saved (will apply when Bluetooth turns ON)");
+                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - preference saved");
                                 }
                             }
                         } catch (NumberFormatException e) {
