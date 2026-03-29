@@ -19,13 +19,13 @@ public class BTReceiver extends BroadcastReceiver {
 
     private static final String TAG = "BTReceiver";
     private static final Handler handler = new Handler(Looper.getMainLooper());
-    private static final Runnable shutdownTask = new Runnable() {
+    private static final Runnable deviceDisconnectShutdownTask = new Runnable() {
         @Override
         public void run() {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
             if (adapter != null && adapter.isEnabled()) {
                 if (!isAnyDeviceConnected(adapter)) {
-                    Log.d(TAG, "Confirmed: No devices. Turning off Bluetooth (device disconnect countdown).");
+                    Log.d(TAG, "Confirmed: No devices reconnected. Turning off Bluetooth (device disconnect countdown).");
                     try {
                         adapter.disable();
                     } catch (SecurityException e) {
@@ -62,9 +62,9 @@ public class BTReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Bluetooth turned ON. Starting inactivity timer if enabled.");
                 inactivityTimer.startTimer();
             } else if (state == BluetoothAdapter.STATE_OFF) {
-                Log.d(TAG, "Bluetooth turned OFF. Cancelling timers.");
+                Log.d(TAG, "Bluetooth turned OFF. Cancelling all timers.");
                 inactivityTimer.cancelTimer();
-                handler.removeCallbacks(shutdownTask);
+                handler.removeCallbacks(deviceDisconnectShutdownTask);
             }
             return;
         }
@@ -74,20 +74,22 @@ public class BTReceiver extends BroadcastReceiver {
         }
 
         if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-            Log.d(TAG, "ACL_CONNECTED: Stopping inactivity timer.");
+            Log.d(TAG, "ACL_CONNECTED: Device connected. Stopping inactivity timer and device disconnect countdown.");
             inactivityTimer.cancelTimer();
-            handler.removeCallbacks(shutdownTask);
+            handler.removeCallbacks(deviceDisconnectShutdownTask);
             return;
         }
 
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action) || 
             BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
             
-            Log.d(TAG, "ACL_DISCONNECTED: Triggering 20s countdown (paired device disconnect).");
+            Log.d(TAG, "ACL_DISCONNECTED: Device disconnected. Starting 20s device disconnect countdown.");
+            Log.d(TAG, "Inactivity timer continues running independently.");
+            
             handler.postDelayed(() -> {
                 if (!isAnyDeviceConnected(adapter)) {
-                    handler.removeCallbacks(shutdownTask);
-                    handler.postDelayed(shutdownTask, 20000);
+                    handler.removeCallbacks(deviceDisconnectShutdownTask);
+                    handler.postDelayed(deviceDisconnectShutdownTask, 20000);
                 }
             }, 2000);
         }
