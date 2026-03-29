@@ -8,7 +8,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.Switch;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -21,12 +25,67 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 101;
+    private Switch inactivitySwitch;
+    private EditText inactivityTimeInput;
+    private InactivityTimer inactivityTimer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        inactivityTimer = InactivityTimer.getInstance(this);
+        initializeInactivityUI();
         checkAndRequestPermissions();
+    }
+
+    private void initializeInactivityUI() {
+        inactivitySwitch = findViewById(R.id.inactivitySwitch);
+        inactivityTimeInput = findViewById(R.id.inactivityTimeInput);
+
+        if (inactivitySwitch != null && inactivityTimeInput != null) {
+            boolean isEnabled = inactivityTimer.isInactivityEnabled();
+            int inactivityMinutes = inactivityTimer.getInactivityTime();
+            inactivitySwitch.setChecked(isEnabled);
+            inactivityTimeInput.setText(String.valueOf(inactivityMinutes));
+            inactivityTimeInput.setEnabled(isEnabled);
+            inactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                inactivityTimer.setInactivityEnabled(isChecked);
+                inactivityTimeInput.setEnabled(isChecked);
+
+                if (isChecked) {
+                    Toast.makeText(MainActivity.this, "Inactivity timer enabled", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "Inactivity timer disabled", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+            inactivityTimeInput.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                }
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                    if (s.length() > 0) {
+                        try {
+                            int minutes = Integer.parseInt(s.toString());
+                            if (!inactivityTimer.setInactivityTime(minutes)) {
+                                Toast.makeText(MainActivity.this,
+                                        "Please enter a value between " + InactivityTimer.getMinInactivityMinutes() +
+                                                " and " + InactivityTimer.getMaxInactivityMinutes(),
+                                        Toast.LENGTH_SHORT).show();
+                                inactivityTimeInput.setText(String.valueOf(inactivityTimer.getInactivityTime()));
+                            }
+                        } catch (NumberFormatException e) {
+                        }
+                    }
+                }
+            });
+        }
     }
 
     public void disableBatteryOptimization(View view) {
@@ -55,14 +114,12 @@ public class MainActivity extends AppCompatActivity {
             String packageName = getPackageName();
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
             
-            // Check if already allowed
             if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
                 try {
                     Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                     intent.setData(Uri.parse("package:" + packageName));
                     startActivity(intent);
                 } catch (Exception e) {
-                    // Fallback for devices that block direct intent
                     Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
                     startActivity(intent);
                 }
