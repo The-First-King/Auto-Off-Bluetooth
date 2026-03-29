@@ -25,7 +25,6 @@ public class BTReceiver extends BroadcastReceiver {
         public void run() {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
             if (adapter != null && adapter.isEnabled()) {
-                // If nothing has reconnected in 20 seconds, disable Bluetooth.
                 if (!isAnyDeviceConnected(adapter)) {
                     Log.d(TAG, "Confirmed: No devices. Turning off Bluetooth.");
                     try {
@@ -45,7 +44,12 @@ public class BTReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
 
-        if (adapter == null || !adapter.isEnabled()) return;
+        if (adapter == null || !adapter.isEnabled()) {
+            InactivityTimer inactivityTimer = InactivityTimer.getInstance(context);
+            inactivityTimer.cancelTimer();
+            return;
+        }
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) 
                 != PackageManager.PERMISSION_GRANTED) return;
@@ -53,20 +57,17 @@ public class BTReceiver extends BroadcastReceiver {
 
         Log.d(TAG, "Received Broadcast: " + action);
 
-        // If a device connects, always stop the timer immediately.
         if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-            Log.d(TAG, "ACL_CONNECTED: Stopping timer.");
+            Log.d(TAG, "ACL_CONNECTED: Stopping timers.");
             handler.removeCallbacks(shutdownTask);
+            InactivityTimer inactivityTimer = InactivityTimer.getInstance(context);
+            inactivityTimer.cancelTimer();
             return;
         }
 
-        // If a device disconnects.
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action) || 
             BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
-            
             Log.d(TAG, "ACL_DISCONNECTED: Triggering 20s countdown.");
-            
-            // We wait 2 seconds before checking "isAnyDeviceConnected" to let the stack finish the disconnection process.
             handler.postDelayed(() -> {
                 if (!isAnyDeviceConnected(adapter)) {
                     handler.removeCallbacks(shutdownTask);
@@ -90,7 +91,6 @@ public class BTReceiver extends BroadcastReceiver {
             } catch (Exception e) { }
         }
 
-        // Bonded Reflection.
         try {
             Set<BluetoothDevice> bondedDevices = adapter.getBondedDevices();
             if (bondedDevices != null) {
