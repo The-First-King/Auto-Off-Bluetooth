@@ -19,14 +19,13 @@ public class BTReceiver extends BroadcastReceiver {
 
     private static final String TAG = "BTReceiver";
     private static final Handler handler = new Handler(Looper.getMainLooper());
-
     private static final Runnable shutdownTask = new Runnable() {
         @Override
         public void run() {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
             if (adapter != null && adapter.isEnabled()) {
                 if (!isAnyDeviceConnected(adapter)) {
-                    Log.d(TAG, "Confirmed: No devices. Turning off Bluetooth.");
+                    Log.d(TAG, "Confirmed: No devices. Turning off Bluetooth (device disconnect countdown).");
                     try {
                         adapter.disable();
                     } catch (SecurityException e) {
@@ -58,6 +57,7 @@ public class BTReceiver extends BroadcastReceiver {
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
             Log.d(TAG, "Bluetooth state changed to: " + state);
+
             if (state == BluetoothAdapter.STATE_ON) {
                 Log.d(TAG, "Bluetooth turned ON. Starting inactivity timer if enabled.");
                 inactivityTimer.startTimer();
@@ -74,16 +74,16 @@ public class BTReceiver extends BroadcastReceiver {
         }
 
         if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-            Log.d(TAG, "ACL_CONNECTED: Stopping timers.");
-            handler.removeCallbacks(shutdownTask);
+            Log.d(TAG, "ACL_CONNECTED: Stopping inactivity timer.");
             inactivityTimer.cancelTimer();
+            handler.removeCallbacks(shutdownTask);
             return;
         }
 
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action) || 
             BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
             
-            Log.d(TAG, "ACL_DISCONNECTED: Triggering 20s countdown.");
+            Log.d(TAG, "ACL_DISCONNECTED: Triggering 20s countdown (paired device disconnect).");
             handler.postDelayed(() -> {
                 if (!isAnyDeviceConnected(adapter)) {
                     handler.removeCallbacks(shutdownTask);
