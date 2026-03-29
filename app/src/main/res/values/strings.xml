@@ -3,4 +3,9 @@
     <string name="WelcomeText">Nothing to configure! Bluetooth will turn off automatically.</string>
     <string name="batteryOptimizationText">Battery Optimization is enabled for this app, which may cause it not to work as expected.</string>
     <string name="batteryOptimizationButton">Disable Battery Optimization</string>
+	<string name="inactivitySwitchLabel">Inactivity switcher</string>
+	<string name="inactivityInputLabel">Input inactivity time (minutes):</string>
+	<string name="inactivityHint">1-1440 minutes</string>
+	<string name="inactivityErrorMessage">Please enter a value between 1 and 1440</string>
+	<string name="inactivityDisabledMessage">Inactivity timer disabled</string>
 </resources>
