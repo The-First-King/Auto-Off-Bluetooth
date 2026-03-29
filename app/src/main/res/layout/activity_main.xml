@@ -7,31 +7,25 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <!-- Inactivity Switch Label -->
-    <TextView
-        android:id="@+id/inactivitySwitchLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/inactivitySwitchLabel"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent" />
-
-    <!-- Inactivity Switch Toggle Button -->
+    <!-- Inactivity Switch Section -->
     <Switch
         android:id="@+id/inactivitySwitch"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:text="@string/inactivitySwitchLabel"
+        android:padding="16dp"
         android:theme="@style/SwitchTheme"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="12dp"
-        app:layout_constraintTop_toBottomOf="@+id/inactivitySwitchLabel"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent" />
+
+    <!-- Vertical Spacer - Increased spacing between switch and input -->
+    <View
+        android:id="@+id/spacerSwitch"
+        android:layout_width="0dp"
+        android:layout_height="32dp"
+        app:layout_constraintTop_toBottomOf="@+id/inactivitySwitch"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintHorizontal_bias="0" />
+        app:layout_constraintRight_toRightOf="parent" />
 
     <!-- Inactivity Input Container -->
     <LinearLayout
@@ -42,8 +36,7 @@
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:layout_marginTop="20dp"
-        app:layout_constraintTop_toBottomOf="@+id/inactivitySwitch"
+        app:layout_constraintTop_toBottomOf="@+id/spacerSwitch"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent">
 
