@@ -1,6 +1,7 @@
 package com.mine.autooffbluetooth;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -48,14 +49,20 @@ public class MainActivity extends AppCompatActivity {
             inactivitySwitch.setChecked(isEnabled);
             inactivityTimeInput.setText(String.valueOf(inactivityMinutes));
             inactivityTimeInput.setEnabled(isEnabled);
+            
             inactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 inactivityTimer.setInactivityEnabled(isChecked);
                 inactivityTimeInput.setEnabled(isChecked);
 
                 if (isChecked) {
                     Toast.makeText(MainActivity.this, "Inactivity timer enabled", Toast.LENGTH_SHORT).show();
+                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                    if (adapter != null && adapter.isEnabled()) {
+                        inactivityTimer.startTimer();
+                    }
                 } else {
                     Toast.makeText(MainActivity.this, "Inactivity timer disabled", Toast.LENGTH_SHORT).show();
+                    inactivityTimer.cancelTimer();
                 }
             });
 
@@ -79,6 +86,10 @@ public class MainActivity extends AppCompatActivity {
                                                 " and " + InactivityTimer.getMaxInactivityMinutes(),
                                         Toast.LENGTH_SHORT).show();
                                 inactivityTimeInput.setText(String.valueOf(inactivityTimer.getInactivityTime()));
+                            } else {
+                                if (inactivitySwitch.isChecked() && inactivityTimer.isTimerRunning()) {
+                                    inactivityTimer.startTimer();
+                                }
                             }
                         } catch (NumberFormatException e) {
                         }
