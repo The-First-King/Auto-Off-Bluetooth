@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Thumb when checked (on) - darker green -->
+    <item android:state_checked="true">
+        <shape android:shape="oval">
+            <solid android:color="#00C853" />
+        </shape>
+    </item>
+    <!-- Thumb when unchecked (off) - light gray -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#F5F5F5" />
+        </shape>
+    </item>
+</selector>
