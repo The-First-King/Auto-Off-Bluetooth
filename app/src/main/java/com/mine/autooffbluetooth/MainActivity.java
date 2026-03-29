@@ -1,7 +1,6 @@
 package com.mine.autooffbluetooth;
 
 import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -49,24 +48,17 @@ public class MainActivity extends AppCompatActivity {
             inactivitySwitch.setChecked(isEnabled);
             inactivityTimeInput.setText(String.valueOf(inactivityMinutes));
             inactivityTimeInput.setEnabled(isEnabled);
-            
             inactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 inactivityTimer.setInactivityEnabled(isChecked);
                 inactivityTimeInput.setEnabled(isChecked);
 
                 if (isChecked) {
                     Toast.makeText(MainActivity.this, "Inactivity timer enabled", Toast.LENGTH_SHORT).show();
-                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                    if (adapter != null && adapter.isEnabled()) {
-                        Log.d("MainActivity", "Switch toggled ON - Bluetooth is ON, starting timer");
-                        inactivityTimer.startTimer();
-                    } else {
-                        Log.d("MainActivity", "Switch toggled ON - Bluetooth is OFF, timer will start when Bluetooth turns ON");
-                    }
+                    Log.d("MainActivity", "Inactivity timer feature ENABLED");
                 } else {
                     Toast.makeText(MainActivity.this, "Inactivity timer disabled", Toast.LENGTH_SHORT).show();
                     inactivityTimer.cancelTimer();
-                    Log.d("MainActivity", "Switch toggled OFF - timer cancelled");
+                    Log.d("MainActivity", "Inactivity timer feature DISABLED");
                 }
             });
 
@@ -91,13 +83,7 @@ public class MainActivity extends AppCompatActivity {
                                         Toast.LENGTH_SHORT).show();
                                 inactivityTimeInput.setText(String.valueOf(inactivityTimer.getInactivityTime()));
                             } else {
-                                BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                                if (inactivitySwitch.isChecked() && adapter != null && adapter.isEnabled()) {
-                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - restarting timer");
-                                    inactivityTimer.startTimer();
-                                } else {
-                                    Log.d("MainActivity", "Time changed to " + minutes + " minutes - preference saved");
-                                }
+                                Log.d("MainActivity", "Inactivity time set to " + minutes + " minutes");
                             }
                         } catch (NumberFormatException e) {
                         }
