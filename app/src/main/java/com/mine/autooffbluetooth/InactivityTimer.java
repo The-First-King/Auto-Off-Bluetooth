@@ -51,11 +51,11 @@ public class InactivityTimer {
 
     public void startTimer() {
         if (!isInactivityEnabled()) {
-            Log.d(TAG, "Inactivity timer is disabled.");
+            Log.d(TAG, "Inactivity timer is disabled. Not starting timer.");
             return;
         }
 
-        cancelTimer();
+        handler.removeCallbacks(inactivityShutdownTask);
 
         int inactivityMinutes = getInactivityTime();
         long inactivityMillis = inactivityMinutes * 60L * 1000L;
@@ -84,7 +84,7 @@ public class InactivityTimer {
 
     public void setInactivityEnabled(boolean enabled) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putBoolean(PREF_INACTIVITY_ENABLED, enabled).apply();
+        prefs.edit().putBoolean(PREF_INACTIVITY_ENABLED, enabled).commit();
         Log.d(TAG, "Inactivity feature set to: " + enabled);
 
         if (!enabled) {
@@ -104,7 +104,7 @@ public class InactivityTimer {
         }
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putInt(PREF_INACTIVITY_TIME, minutes).apply();
+        prefs.edit().putInt(PREF_INACTIVITY_TIME, minutes).commit();
         Log.d(TAG, "Inactivity time set to: " + minutes + " minutes");
         return true;
     }
