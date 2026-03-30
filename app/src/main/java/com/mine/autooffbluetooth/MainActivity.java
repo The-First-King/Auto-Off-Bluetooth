@@ -3,11 +3,13 @@ package com.mine.autooffbluetooth;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -18,6 +20,7 @@ import android.widget.Switch;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import java.util.ArrayList;
@@ -26,6 +29,9 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 101;
+    public static final String PREF_MASTER_SWITCH = "master_switch_enabled";
+    
+    private SwitchCompat masterSwitch;
     private Switch inactivitySwitch;
     private EditText inactivityTimeInput;
     private InactivityTimer inactivityTimer;
@@ -34,10 +40,32 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
         inactivityTimer = InactivityTimer.getInstance(this);
+        initializeMasterUI();
         initializeInactivityUI();
         checkAndRequestPermissions();
+    }
+
+    private void initializeMasterUI() {
+        masterSwitch = findViewById(R.id.master_switch);
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        if (masterSwitch != null) {
+            boolean isEnabled = prefs.getBoolean(PREF_MASTER_SWITCH, true);
+            masterSwitch.setChecked(isEnabled);
+
+            masterSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean(PREF_MASTER_SWITCH, isChecked).apply();
+                
+                if (isChecked) {
+                    Log.d("MainActivity", "App Logic ENABLED.");
+                    refreshTimerIfNecessary();
+                } else {
+                    Log.d("MainActivity", "App Logic DISABLED. Cancelling timers.");
+                    inactivityTimer.cancelTimer();
+                }
+            });
+        }
     }
 
     private void initializeInactivityUI() {
@@ -51,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
             inactivitySwitch.setChecked(isEnabled);
             inactivityTimeInput.setText(String.valueOf(inactivityMinutes));
             inactivityTimeInput.setEnabled(isEnabled);
+            
             inactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 inactivityTimer.setInactivityEnabled(isChecked);
                 inactivityTimeInput.setEnabled(isChecked);
@@ -91,6 +120,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshTimerIfNecessary() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean isAppEnabled = prefs.getBoolean(PREF_MASTER_SWITCH, true);
+        
+        if (!isAppEnabled) return;
+
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (inactivityTimer.isInactivityEnabled() && adapter != null && adapter.isEnabled()) {
             if (!BTReceiver.isAnyDeviceConnected(adapter)) {
