@@ -1,0 +1,3 @@
+Changes in Release 1.6:
+
+ - Introducing "Inactivity switcher" which automatically turns off Bluetooth if it’s enabled but not in use (i.e., no devices are paired).
