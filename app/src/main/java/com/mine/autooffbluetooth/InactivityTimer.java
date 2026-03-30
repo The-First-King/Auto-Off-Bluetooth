@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 public class InactivityTimer {
@@ -32,7 +33,17 @@ public class InactivityTimer {
         return instance;
     }
 
+    public boolean isMasterEnabled() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getBoolean(MainActivity.PREF_MASTER_SWITCH, true);
+    }
+
     public void startTimer() {
+        if (!isMasterEnabled()) {
+            Log.d(TAG, "Master Switch is OFF. Blocking timer start.");
+            return;
+        }
+
         if (!isInactivityEnabled()) {
             Log.d(TAG, "Inactivity timer is disabled in settings. Skipping.");
             return;
