@@ -8,4 +8,5 @@
 	<string name="inactivityHint">1-1440</string>
 	<string name="inactivityErrorMessage">Please enter a value between 1 and 1440</string>
 	<string name="inactivityDisabledMessage">Inactivity timer disabled</string>
+	<string name="toggle_app">Toggle App</string>
 </resources>
