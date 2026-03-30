@@ -8,8 +8,8 @@ android {
         applicationId "com.mine.autooffbluetooth"
         minSdkVersion 15
         targetSdkVersion 31 
-        versionCode 7
-        versionName "1.6"
+        versionCode 8
+        versionName "1.7"
 
         // Updated for AndroidX testing
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
