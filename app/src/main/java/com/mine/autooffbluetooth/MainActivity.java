@@ -34,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        
         inactivityTimer = InactivityTimer.getInstance(this);
         initializeInactivityUI();
         checkAndRequestPermissions();
@@ -50,25 +51,16 @@ public class MainActivity extends AppCompatActivity {
             inactivitySwitch.setChecked(isEnabled);
             inactivityTimeInput.setText(String.valueOf(inactivityMinutes));
             inactivityTimeInput.setEnabled(isEnabled);
-
             inactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 inactivityTimer.setInactivityEnabled(isChecked);
                 inactivityTimeInput.setEnabled(isChecked);
 
                 if (isChecked) {
-                    Toast.makeText(MainActivity.this, "Inactivity timer enabled", Toast.LENGTH_SHORT).show();
-                    Log.d("MainActivity", "Inactivity timer feature ENABLED");
-                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                    if (adapter != null && adapter.isEnabled()) {
-                        if (!BTReceiver.isAnyDeviceConnected(adapter)) {
-                            Log.d("MainActivity", "BT is ON and disconnected. Starting timer immediately.");
-                            inactivityTimer.startTimer();
-                        }
-                    }
+                    Log.d("MainActivity", "Inactivity feature ENABLED.");
+                    refreshTimerIfNecessary();
                 } else {
-                    Toast.makeText(MainActivity.this, "Inactivity timer disabled", Toast.LENGTH_SHORT).show();
+                    Log.d("MainActivity", "Inactivity feature DISABLED.");
                     inactivityTimer.cancelTimer();
-                    Log.d("MainActivity", "Inactivity timer feature DISABLED");
                 }
             });
 
@@ -81,26 +73,32 @@ public class MainActivity extends AppCompatActivity {
                     if (s.length() > 0) {
                         try {
                             int minutes = Integer.parseInt(s.toString());
-                            if (!inactivityTimer.setInactivityTime(minutes)) {
-                                Toast.makeText(MainActivity.this,
-                                        "Value must be between " + InactivityTimer.getMinInactivityMinutes() +
-                                                " and " + InactivityTimer.getMaxInactivityMinutes(),
-                                        Toast.LENGTH_SHORT).show();
+                            if (inactivityTimer.setInactivityTime(minutes)) {
+                                Log.d("MainActivity", "Time updated to " + minutes + "m. Refreshing timer...");
+                                refreshTimerIfNecessary();
                             } else {
-                                Log.d("MainActivity", "Inactivity time updated to " + minutes);
-                                BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                                if (inactivityTimer.isInactivityEnabled() && adapter != null && adapter.isEnabled()) {
-                                    if (!BTReceiver.isAnyDeviceConnected(adapter)) {
-                                        inactivityTimer.startTimer();
-                                    }
-                                }
+                                Toast.makeText(MainActivity.this, 
+                                    "Min: " + InactivityTimer.getMinInactivityMinutes() + " Max: " + InactivityTimer.getMaxInactivityMinutes(), 
+                                    Toast.LENGTH_SHORT).show();
                             }
                         } catch (NumberFormatException e) {
-                            Log.e("MainActivity", "Invalid number format in input");
+                            Log.e("MainActivity", "Invalid input");
                         }
                     }
                 }
             });
+        }
+    }
+
+    private void refreshTimerIfNecessary() {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (inactivityTimer.isInactivityEnabled() && adapter != null && adapter.isEnabled()) {
+            if (!BTReceiver.isAnyDeviceConnected(adapter)) {
+                inactivityTimer.startTimer();
+                Log.d("MainActivity", "Timer (re)started successfully.");
+            } else {
+                Log.d("MainActivity", "Device connected; timer not started.");
+            }
         }
     }
 
@@ -110,7 +108,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void checkAndRequestPermissions() {
         List<String> permissionsNeeded = new ArrayList<>();
-        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
@@ -119,12 +116,6 @@ public class MainActivity extends AppCompatActivity {
                 permissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
             }
         }
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-             if (ContextCompat.checkSelfPermission(this, "android.permission.SCHEDULE_EXACT_ALARM") != PackageManager.PERMISSION_GRANTED) {
-             }
-        }
-
         if (!permissionsNeeded.isEmpty()) {
             ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSION_REQUEST_CODE);
         }
@@ -134,7 +125,6 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             String packageName = getPackageName();
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-            
             if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
                 try {
                     Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
@@ -145,7 +135,7 @@ public class MainActivity extends AppCompatActivity {
                     startActivity(intent);
                 }
             } else {
-                Toast.makeText(this, "Battery optimization is already disabled.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Already disabled.", Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -156,8 +146,6 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Permissions granted!", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Permissions are required for background tasks.", Toast.LENGTH_LONG).show();
             }
         }
     }
