@@ -4,11 +4,21 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 public class InactivityAlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        boolean isAppEnabled = prefs.getBoolean(MainActivity.PREF_MASTER_SWITCH, true);
+        
+        if (!isAppEnabled) {
+            Log.d("InactivityAlarm", "Master switch is OFF. Ignoring alarm trigger.");
+            return;
+        }
+
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter != null && adapter.isEnabled()) {
             if (!BTReceiver.isAnyDeviceConnected(adapter)) {
