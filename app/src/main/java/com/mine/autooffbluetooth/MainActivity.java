@@ -1,6 +1,7 @@
 package com.mine.autooffbluetooth;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -45,9 +46,11 @@ public class MainActivity extends AppCompatActivity {
         if (inactivitySwitch != null && inactivityTimeInput != null) {
             boolean isEnabled = inactivityTimer.isInactivityEnabled();
             int inactivityMinutes = inactivityTimer.getInactivityTime();
+            
             inactivitySwitch.setChecked(isEnabled);
             inactivityTimeInput.setText(String.valueOf(inactivityMinutes));
             inactivityTimeInput.setEnabled(isEnabled);
+
             inactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 inactivityTimer.setInactivityEnabled(isChecked);
                 inactivityTimeInput.setEnabled(isChecked);
@@ -55,6 +58,13 @@ public class MainActivity extends AppCompatActivity {
                 if (isChecked) {
                     Toast.makeText(MainActivity.this, "Inactivity timer enabled", Toast.LENGTH_SHORT).show();
                     Log.d("MainActivity", "Inactivity timer feature ENABLED");
+                    BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                    if (adapter != null && adapter.isEnabled()) {
+                        if (!BTReceiver.isAnyDeviceConnected(adapter)) {
+                            Log.d("MainActivity", "BT is ON and disconnected. Starting timer immediately.");
+                            inactivityTimer.startTimer();
+                        }
+                    }
                 } else {
                     Toast.makeText(MainActivity.this, "Inactivity timer disabled", Toast.LENGTH_SHORT).show();
                     inactivityTimer.cancelTimer();
@@ -63,13 +73,8 @@ public class MainActivity extends AppCompatActivity {
             });
 
             inactivityTimeInput.addTextChangedListener(new TextWatcher() {
-                @Override
-                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                }
-
-                @Override
-                public void onTextChanged(CharSequence s, int start, int before, int count) {
-                }
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
 
                 @Override
                 public void afterTextChanged(Editable s) {
@@ -78,14 +83,20 @@ public class MainActivity extends AppCompatActivity {
                             int minutes = Integer.parseInt(s.toString());
                             if (!inactivityTimer.setInactivityTime(minutes)) {
                                 Toast.makeText(MainActivity.this,
-                                        "Please enter a value between " + InactivityTimer.getMinInactivityMinutes() +
+                                        "Value must be between " + InactivityTimer.getMinInactivityMinutes() +
                                                 " and " + InactivityTimer.getMaxInactivityMinutes(),
                                         Toast.LENGTH_SHORT).show();
-                                inactivityTimeInput.setText(String.valueOf(inactivityTimer.getInactivityTime()));
                             } else {
-                                Log.d("MainActivity", "Inactivity time set to " + minutes + " minutes");
+                                Log.d("MainActivity", "Inactivity time updated to " + minutes);
+                                BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                                if (inactivityTimer.isInactivityEnabled() && adapter != null && adapter.isEnabled()) {
+                                    if (!BTReceiver.isAnyDeviceConnected(adapter)) {
+                                        inactivityTimer.startTimer();
+                                    }
+                                }
                             }
                         } catch (NumberFormatException e) {
+                            Log.e("MainActivity", "Invalid number format in input");
                         }
                     }
                 }
@@ -98,19 +109,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkAndRequestPermissions() {
+        List<String> permissionsNeeded = new ArrayList<>();
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            List<String> permissionsNeeded = new ArrayList<>();
-            
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
             }
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
             }
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+             if (ContextCompat.checkSelfPermission(this, "android.permission.SCHEDULE_EXACT_ALARM") != PackageManager.PERMISSION_GRANTED) {
+             }
+        }
 
-            if (!permissionsNeeded.isEmpty()) {
-                ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSION_REQUEST_CODE);
-            }
+        if (!permissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSION_REQUEST_CODE);
         }
     }
 
@@ -139,9 +155,9 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Bluetooth permissions granted!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Permissions granted!", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "Permissions are required to detect your watch/headphones.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Permissions are required for background tasks.", Toast.LENGTH_LONG).show();
             }
         }
     }
