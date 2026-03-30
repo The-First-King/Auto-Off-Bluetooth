@@ -23,17 +23,9 @@ public class BTReceiver extends BroadcastReceiver {
         @Override
         public void run() {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-            if (adapter != null && adapter.isEnabled()) {
-                if (!isAnyDeviceConnected(adapter)) {
-                    Log.d(TAG, "Confirmed: No devices reconnected. Turning off Bluetooth (device disconnect countdown).");
-                    try {
-                        adapter.disable();
-                    } catch (SecurityException e) {
-                        Log.e(TAG, "Permission denied for disable()");
-                    }
-                } else {
-                    Log.d(TAG, "Device reconnected during countdown. Aborting shutdown.");
-                }
+            if (adapter != null && adapter.isEnabled() && !isAnyDeviceConnected(adapter)) {
+                Log.d(TAG, "20s disconnect window expired. Turning off Bluetooth.");
+                try { adapter.disable(); } catch (SecurityException e) {}
             }
         }
     };
@@ -42,85 +34,42 @@ public class BTReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-
         if (adapter == null) return;
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) 
-                != PackageManager.PERMISSION_GRANTED) return;
-        }
-
-        Log.d(TAG, "Received Broadcast: " + action);
 
         InactivityTimer inactivityTimer = InactivityTimer.getInstance(context);
 
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
-            Log.d(TAG, "Bluetooth state changed to: " + state);
-
             if (state == BluetoothAdapter.STATE_ON) {
-                Log.d(TAG, "Bluetooth turned ON. Starting inactivity timer if enabled.");
                 inactivityTimer.startTimer();
             } else if (state == BluetoothAdapter.STATE_OFF) {
-                Log.d(TAG, "Bluetooth turned OFF. Cancelling all timers.");
                 inactivityTimer.cancelTimer();
                 handler.removeCallbacks(deviceDisconnectShutdownTask);
             }
-            return;
-        }
-
-        if (!adapter.isEnabled()) {
-            return;
-        }
-
-        if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-            Log.d(TAG, "ACL_CONNECTED: Device connected. Stopping inactivity timer and device disconnect countdown.");
+        } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
             inactivityTimer.cancelTimer();
             handler.removeCallbacks(deviceDisconnectShutdownTask);
-            return;
-        }
-
-        if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action) || 
-            BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED.equals(action)) {
-            
-            Log.d(TAG, "ACL_DISCONNECTED: Device disconnected. Starting 20s device disconnect countdown.");
-            Log.d(TAG, "Inactivity timer continues running independently.");
-            
-            handler.postDelayed(() -> {
-                if (!isAnyDeviceConnected(adapter)) {
-                    handler.removeCallbacks(deviceDisconnectShutdownTask);
-                    handler.postDelayed(deviceDisconnectShutdownTask, 20000);
-                }
-            }, 2000);
+        } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+            inactivityTimer.startTimer();
+            handler.postDelayed(deviceDisconnectShutdownTask, 20000);
         }
     }
 
-    private static boolean isAnyDeviceConnected(BluetoothAdapter adapter) {
-        // Standard Profiles: 1=Headset, 2=A2DP, 7=GATT, 4=HID, 5=PAN.
-        int[] profiles = {1, 2, 7, 4, 5};
-        
+    public static boolean isAnyDeviceConnected(BluetoothAdapter adapter) {
+        int[] profiles = {1, 2, 7, 4, 5}; // Headset, A2DP, GATT, HID, PAN
         for (int profileId : profiles) {
             try {
-                int state = adapter.getProfileConnectionState(profileId);
-                if (state == BluetoothProfile.STATE_CONNECTED) {
-                    Log.d(TAG, "Active Profile Found: " + profileId);
-                    return true;
-                }
+                if (adapter.getProfileConnectionState(profileId) == BluetoothProfile.STATE_CONNECTED) return true;
             } catch (Exception e) { }
         }
-
         try {
             Set<BluetoothDevice> bondedDevices = adapter.getBondedDevices();
             if (bondedDevices != null) {
                 for (BluetoothDevice device : bondedDevices) {
-                    if (isConnectedReflection(device)) {
-                        Log.d(TAG, "Active Device Found (Reflection): " + device.getName());
-                        return true;
-                    }
+                    if (isConnectedReflection(device)) return true;
                 }
             }
         } catch (SecurityException e) { }
-        
         return false;
     }
 
@@ -128,8 +77,6 @@ public class BTReceiver extends BroadcastReceiver {
         try {
             Method m = device.getClass().getMethod("isConnected");
             return (boolean) m.invoke(device);
-        } catch (Exception e) {
-            return false;
-        }
+        } catch (Exception e) { return false; }
     }
 }
