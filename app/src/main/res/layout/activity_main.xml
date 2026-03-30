@@ -9,11 +9,15 @@
     
     <!-- Toggle App Switcher -->
     <LinearLayout
+        android:id="@+id/masterSwitchContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="16dp"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent">
 
         <TextView
             android:layout_width="0dp"
