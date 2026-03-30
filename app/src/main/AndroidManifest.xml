@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
@@ -35,6 +36,11 @@
                 <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" /> 
             </intent-filter>
         </receiver>
+
+        <receiver 
+            android:name=".InactivityAlarmReceiver" 
+            android:exported="false" />
+
     </application>
 
 </manifest>
