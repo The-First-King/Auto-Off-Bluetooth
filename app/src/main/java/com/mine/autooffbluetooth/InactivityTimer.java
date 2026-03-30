@@ -1,10 +1,11 @@
 package com.mine.autooffbluetooth;
 
-import android.bluetooth.BluetoothAdapter;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Handler;
-import android.os.Looper;
+import android.os.Build;
 import android.util.Log;
 
 public class InactivityTimer {
@@ -17,26 +18,8 @@ public class InactivityTimer {
     private static final int MIN_INACTIVITY_MINUTES = 1;
     private static final int MAX_INACTIVITY_MINUTES = 1440;
 
-    private static final Handler handler = new Handler(Looper.getMainLooper());
     private static InactivityTimer instance;
     private final Context context;
-    private boolean isRunning = false;
-
-    private final Runnable inactivityShutdownTask = new Runnable() {
-        @Override
-        public void run() {
-            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-            if (adapter != null && adapter.isEnabled()) {
-                Log.d(TAG, "Inactivity timer expired. No device connected. Disabling Bluetooth.");
-                try {
-                    adapter.disable();
-                } catch (SecurityException e) {
-                    Log.e(TAG, "Permission denied for disable(): " + e.getMessage());
-                }
-            }
-            isRunning = false;
-        }
-    };
 
     private InactivityTimer(Context context) {
         this.context = context.getApplicationContext();
@@ -51,30 +34,50 @@ public class InactivityTimer {
 
     public void startTimer() {
         if (!isInactivityEnabled()) {
-            Log.d(TAG, "Inactivity timer is disabled. Not starting timer.");
+            Log.d(TAG, "Inactivity timer is disabled in settings. Skipping.");
             return;
         }
 
-        handler.removeCallbacks(inactivityShutdownTask);
+        cancelTimer();
 
-        int inactivityMinutes = getInactivityTime();
-        long inactivityMillis = inactivityMinutes * 60L * 1000L;
+        int minutes = getInactivityTime();
+        long triggerAtMillis = System.currentTimeMillis() + (minutes * 60L * 1000L);
 
-        Log.d(TAG, "Starting inactivity timer for " + inactivityMinutes + " minutes (" + inactivityMillis + "ms).");
-        handler.postDelayed(inactivityShutdownTask, inactivityMillis);
-        isRunning = true;
-    }
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, InactivityAlarmReceiver.class);
+        
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, flags);
 
-    public void cancelTimer() {
-        if (isRunning) {
-            Log.d(TAG, "Cancelling inactivity timer (device connected or timer disabled).");
-            handler.removeCallbacks(inactivityShutdownTask);
-            isRunning = false;
+        if (alarmManager != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+            }
+            Log.d(TAG, "Scheduled Bluetooth shutdown in " + minutes + " minutes.");
         }
     }
 
-    public boolean isTimerRunning() {
-        return isRunning;
+    public void cancelTimer() {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, InactivityAlarmReceiver.class);
+        
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, flags);
+
+        if (alarmManager != null) {
+            alarmManager.cancel(pendingIntent);
+            Log.d(TAG, "Cancelled existing inactivity alarm.");
+        }
     }
 
     public boolean isInactivityEnabled() {
@@ -84,12 +87,8 @@ public class InactivityTimer {
 
     public void setInactivityEnabled(boolean enabled) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putBoolean(PREF_INACTIVITY_ENABLED, enabled).commit();
-        Log.d(TAG, "Inactivity feature set to: " + enabled);
-
-        if (!enabled) {
-            cancelTimer();
-        }
+        prefs.edit().putBoolean(PREF_INACTIVITY_ENABLED, enabled).apply();
+        if (!enabled) cancelTimer();
     }
 
     public int getInactivityTime() {
@@ -98,26 +97,12 @@ public class InactivityTimer {
     }
 
     public boolean setInactivityTime(int minutes) {
-        if (minutes < MIN_INACTIVITY_MINUTES || minutes > MAX_INACTIVITY_MINUTES) {
-            Log.e(TAG, "Invalid inactivity time: " + minutes + ". Must be between " + MIN_INACTIVITY_MINUTES + " and " + MAX_INACTIVITY_MINUTES);
-            return false;
-        }
-
+        if (minutes < MIN_INACTIVITY_MINUTES || minutes > MAX_INACTIVITY_MINUTES) return false;
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putInt(PREF_INACTIVITY_TIME, minutes).commit();
-        Log.d(TAG, "Inactivity time set to: " + minutes + " minutes");
+        prefs.edit().putInt(PREF_INACTIVITY_TIME, minutes).apply();
         return true;
     }
 
-    public static int getMinInactivityMinutes() {
-        return MIN_INACTIVITY_MINUTES;
-    }
-
-    public static int getMaxInactivityMinutes() {
-        return MAX_INACTIVITY_MINUTES;
-    }
-
-    public static int getDefaultInactivityMinutes() {
-        return DEFAULT_INACTIVITY_MINUTES;
-    }
+    public static int getMinInactivityMinutes() { return MIN_INACTIVITY_MINUTES; }
+    public static int getMaxInactivityMinutes() { return MAX_INACTIVITY_MINUTES; }
 }
