@@ -9,7 +9,7 @@ The app listens for Bluetooth state changes in the stack and for Asynchronous Co
 ## Screenshots
 
 <div align="center">
-  <img src="https://github.com/The-First-King/Auto-Off-Bluetooth/blob/master/metadata/en-US/images/phoneScreenshots/01.png?raw=true" alt="App UI" width="405" />
+  <img src="https://raw.githubusercontent.com/The-First-King/Auto-Off-Bluetooth/refs/heads/master/metadata/en-US/images/phoneScreenshots/01.png" alt="App UI" width="405" />
 </div>
 
 ## Permissions
