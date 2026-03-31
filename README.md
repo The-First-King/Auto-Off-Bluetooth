@@ -14,11 +14,13 @@ The app listens for Bluetooth state changes in the stack and for Asynchronous Co
 
 ## Permissions
 
-The app requires the following permissions to manage your Bluetooth hardware:
+The app requires the following permissions to manage your Bluetooth hardware on **Android 6.0 (Marshmallow)** or higher:
 
 * `BLUETOOTH`: Allows the app to see the status of connections.
 * `BLUETOOTH_ADMIN`: Allows the app to toggle the Bluetooth radio on/off.
 * `BLUETOOTH_CONNECT`: To interact with paired devices (required for Android 12+).
+* `BLUETOOTH_SCAN`: Required on Android 12+ to monitor Bluetooth state reliably.
+* **Disable Battery Optimization**: For the background timer to work accurately, it is recommended to exclude the app from battery "Optimization" via the in-app button.
 
 ## Installation & License
 
