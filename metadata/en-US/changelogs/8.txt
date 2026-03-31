@@ -1,1 +1,2 @@
  - Introducing new feature "Toggle App" slide button that allows to disable app when Bluetooth automation is not required.
+ - Updating documentation with new permissions and a screenshot.
