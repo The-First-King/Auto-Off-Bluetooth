@@ -36,14 +36,14 @@
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/inactivityHeaderContainer"
+        android:id="@+id/inactivityContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="20dp"
         app:layout_constraintTop_toBottomOf="@+id/masterSwitchContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -65,7 +65,7 @@
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/inactivityContainer"
+        android:id="@+id/inactivityTimeContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -73,7 +73,7 @@
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:layout_marginTop="20dp"
-        app:layout_constraintTop_toBottomOf="@+id/inactivityHeaderContainer"
+        app:layout_constraintTop_toBottomOf="@+id/inactivityContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -103,7 +103,7 @@
         android:id="@+id/spacer"
         android:layout_width="0dp"
         android:layout_height="16dp"
-        app:layout_constraintTop_toBottomOf="@+id/inactivityContainer"
+        app:layout_constraintTop_toBottomOf="@+id/inactivityTimeContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
