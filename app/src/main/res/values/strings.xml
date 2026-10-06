@@ -1,9 +1,16 @@
 <resources>
     <string name="app_name">Auto Off Bluetooth</string>
     <string name="WelcomeText">Nothing to configure! Bluetooth will turn off automatically.</string>
-	<string name="inactivitySwitchLabel">Inactivity switcher</string>
-	<string name="inactivityInputLabel">Input inactivity time (minutes):</string>
-	<string name="inactivityHint">1-1440</string>
-	<string name="inactivityErrorMessage">Please enter a value between 1 and 1440</string>
-	<string name="inactivityDisabledMessage">Inactivity timer disabled</string>
+    <string name="inactivitySwitchLabel">Idle inactivity switcher</string>
+    <string name="inactivityInputLabel">Input inactivity time (minutes):</string>
+    <string name="inactivityHint">1-1440</string>
+    <string name="inactivityErrorMessage">Please enter a value between 1 and 1440</string>
+    <string name="inactivityDisabledMessage">Inactivity timer disabled</string>
+    <string name="extraFeaturesLabel">Extra features:</string>
+    <string name="wifiInactivitySwitchLabel">Wi-Fi inactivity switcher</string>
+    <string name="wifiInactivityInputLabel">Input inactivity time (minutes):</string>
+    <string name="wifiInactivityHint">1-720</string>
+    <string name="wifiInactivityErrorMessage">Please enter a value between 1 and 720</string>
+    <string name="rootRequiredMessage">Root access is required to turn off Wi-Fi automatically on Android 10 and above.</string>
+    <string name="rootDeniedMessage">Root access denied or unavailable. Wi-Fi inactivity switcher turned off.</string>
 </resources>
