@@ -32,7 +32,7 @@
             android:id="@+id/master_switch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:theme="@style/Theme.AppCompat.Light" />
+            android:theme="@style/MasterSwitchTheme" />
     </LinearLayout>
 
     <LinearLayout
