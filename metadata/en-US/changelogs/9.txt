@@ -1,0 +1,2 @@
+- Redesigned the main app UI and the way permission requests appear when the app starts.
+- Introduced extra features to control Wi-Fi.
