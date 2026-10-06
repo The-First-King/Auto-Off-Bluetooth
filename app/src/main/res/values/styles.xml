@@ -8,6 +8,14 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <!-- Theme overlay for the master switch in the green app bar.
+         On a colorPrimary background the normal green active color is invisible,
+         so this switch uses white when ON; the Dark overlay parent keeps the
+         OFF state light enough to read on green. -->
+    <style name="MasterSwitchTheme" parent="ThemeOverlay.AppCompat.Dark">
+        <item name="colorControlActivated">@color/white</item>
+    </style>
+
     <!-- Green Switch Theme -->
     <style name="SwitchTheme" parent="Theme.AppCompat.Light">
         <item name="colorControlActivated">@color/colorPrimary</item>
