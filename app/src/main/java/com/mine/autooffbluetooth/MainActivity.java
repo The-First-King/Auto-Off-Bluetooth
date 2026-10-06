@@ -1,7 +1,9 @@
 package com.mine.autooffbluetooth;
 
 import android.Manifest;
+import android.app.AlarmManager;
 import android.bluetooth.BluetoothAdapter;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -19,18 +21,26 @@ import android.widget.EditText;
 import android.widget.Switch;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.Lifecycle;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int PERMISSION_REQUEST_CODE = 101;
     public static final String PREF_MASTER_SWITCH = "master_switch_enabled";
-    
+
+    // Sequential permission flow
+    private static final int STEP_RUNTIME_PERMS = 0;
+    private static final int STEP_BATTERY = 1;
+    private static final int REQ_RUNTIME_PERMS = 42;
+
+    private int pendingPermissionStep = -1;
+
     private SwitchCompat masterSwitch;
     private Switch inactivitySwitch;
     private EditText inactivityTimeInput;
@@ -43,7 +53,21 @@ public class MainActivity extends AppCompatActivity {
         inactivityTimer = InactivityTimer.getInstance(this);
         initializeMasterUI();
         initializeInactivityUI();
-        checkAndRequestPermissions();
+
+        // Ask for everything the app needs, one prompt at a time
+        startPermissionStep(STEP_RUNTIME_PERMS);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // Continue the permission flow if a step was waiting for the user to come back from a Settings screen
+        if (pendingPermissionStep != -1) {
+            int step = pendingPermissionStep;
+            pendingPermissionStep = -1;
+            startPermissionStep(step);
+        }
     }
 
     private void initializeMasterUI() {
@@ -136,51 +160,73 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void disableBatteryOptimization(View view) {
-        requestIgnoreBatteryOptimizations();
-    }
-
-    private void checkAndRequestPermissions() {
-        List<String> permissionsNeeded = new ArrayList<>();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
-            }
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
-            }
-        }
-        if (!permissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    private void requestIgnoreBatteryOptimizations() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            String packageName = getPackageName();
-            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-            if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
-                try {
-                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                    intent.setData(Uri.parse("package:" + packageName));
-                    startActivity(intent);
-                } catch (Exception e) {
-                    Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                    startActivity(intent);
+    private void startPermissionStep(int step) {
+        switch (step) {
+            case STEP_RUNTIME_PERMS: {
+                List<String> needed = new ArrayList<>();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        needed.add(Manifest.permission.BLUETOOTH_CONNECT);
+                    }
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        needed.add(Manifest.permission.BLUETOOTH_SCAN);
+                    }
                 }
-            } else {
-                Toast.makeText(this, "Already disabled.", Toast.LENGTH_SHORT).show();
+                if (!needed.isEmpty()) {
+                    ActivityCompat.requestPermissions(this, needed.toArray(new String[0]),
+                            REQ_RUNTIME_PERMS);
+                    return;
+                }
+                startPermissionStep(STEP_BATTERY);
+                break;
             }
+
+            case STEP_BATTERY: {
+                ensureBatteryExemption();
+                break;
+            }
+        }
+    }
+
+    private void continueAfterDialog(int nextStep) {
+        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED)) {
+            startPermissionStep(nextStep);
+        } else {
+            pendingPermissionStep = nextStep;
+        }
+    }
+
+    private void ensureBatteryExemption() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm == null || pm.isIgnoringBatteryOptimizations(getPackageName())) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e("AutoOffBluetooth", "Battery exemption request failed", e);
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permissions granted!", Toast.LENGTH_SHORT).show();
+        if (requestCode == REQ_RUNTIME_PERMS) {
+            for (int i = 0; i < permissions.length; i++) {
+                if (Manifest.permission.BLUETOOTH_CONNECT.equals(permissions[i])) {
+                    if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                        Toast.makeText(this,
+                                "Bluetooth permissions are needed for the app to work.",
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
             }
+            startPermissionStep(STEP_BATTERY);
         }
     }
 }
