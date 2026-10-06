@@ -1,2 +1,2 @@
 - Redesigned the main app UI and the way permission requests appear when the app starts.
-- Introduced extra features to control Wi-Fi.
+- Introduced extra features to control Wi-Fi. It requires root on devices running Android 10 or later.
