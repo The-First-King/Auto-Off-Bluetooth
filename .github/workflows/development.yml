@@ -1,4 +1,4 @@
-name: Android CI Build APK
+name: Android CI Test APK
 
 on: 
   push: 
