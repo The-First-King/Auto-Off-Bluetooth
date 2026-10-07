@@ -8,9 +8,6 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.preference.PreferenceManager;
 import android.util.Log;
-import android.widget.Toast;
-import java.text.SimpleDateFormat;
-import java.util.Locale;
 
 public class InactivityTimer {
 
@@ -42,7 +39,6 @@ public class InactivityTimer {
         return prefs.getBoolean(MainActivity.PREF_MASTER_SWITCH, true);
     }
 
-    /** Call on a genuine disconnect (or BT-on-with-nothing-connected) event. Resets the reference point that the countdown is measured from. */
     public void startTimer() {
         if (!isMasterEnabled()) {
             Log.d(TAG, "Master Switch is OFF. Blocking timer start.");
@@ -61,13 +57,6 @@ public class InactivityTimer {
         scheduleFrom(startTime);
     }
 
-    /**
-     * Call when the configured duration changes while a disconnect window may
-     * already be in progress. Keeps the existing disconnect reference time
-     * (instead of restarting the countdown from now), so shortening the
-     * duration past the elapsed disconnect time takes effect right away
-     * instead of requiring a fresh full wait.
-     */
     public void rescheduleTimer() {
         if (!isMasterEnabled() || !isInactivityEnabled()) {
             return;
@@ -85,7 +74,6 @@ public class InactivityTimer {
         long now = System.currentTimeMillis();
         long triggerAtMillis = startTime + (minutes * 60L * 1000L);
         if (triggerAtMillis <= now) {
-            // Already overdue under the (possibly just-shortened) duration - fire almost immediately.
             triggerAtMillis = now + 1000L;
         }
 
@@ -105,9 +93,7 @@ public class InactivityTimer {
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
             }
-            String when = new SimpleDateFormat("HH:mm:ss", Locale.US).format(triggerAtMillis);
             Log.d(TAG, "Scheduled Bluetooth shutdown at " + triggerAtMillis + " (" + minutes + "m window).");
-            Toast.makeText(context, "DEBUG: BT shutoff alarm scheduled for " + when, Toast.LENGTH_LONG).show();
         }
     }
 
