@@ -13,6 +13,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.widget.Toast;
 import androidx.core.content.ContextCompat;
 import java.lang.reflect.Method;
 import java.util.Set;
@@ -51,6 +52,7 @@ public class BTReceiver extends BroadcastReceiver {
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
             if (state == BluetoothAdapter.STATE_ON) {
+                Toast.makeText(context, "DEBUG: BT turned ON, inactivity timer (re)started", Toast.LENGTH_LONG).show();
                 inactivityTimer.startTimer();
             } else if (state == BluetoothAdapter.STATE_OFF) {
                 inactivityTimer.cancelTimer();
