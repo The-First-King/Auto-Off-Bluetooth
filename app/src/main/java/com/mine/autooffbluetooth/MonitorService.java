@@ -9,33 +9,38 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.wifi.WifiManager;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.os.Build;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 /**
- * Keeps BTReceiver/WifiStateReceiver alive as DYNAMICALLY registered receivers.
- * Manifest-declared receivers for these actions are silently never invoked on
- * modern Android (targeting API 26+) background execution limits - confirmed
- * by an empty logcat capture across two devices with the static <receiver>
- * approach. Dynamic registration from a running (foreground) service is not
- * subject to that restriction.
+ * Keeps BTReceiver alive as a DYNAMICALLY registered receiver.
+ * Manages Wi-Fi state monitoring via NetworkCallback for Doze-mode resistance.
  */
 public class MonitorService extends Service {
 
     private static final String CHANNEL_ID = "monitor_service_channel";
     private static final int NOTIFICATION_ID = 1;
+    private static final String TAG = "MonitorService";
 
     private BTReceiver btReceiver;
-    private WifiStateReceiver wifiStateReceiver;
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     @Override
     public void onCreate() {
         super.onCreate();
         startForeground(NOTIFICATION_ID, buildNotification());
-        registerReceivers();
+        registerBluetoothReceiver();
+        registerWifiNetworkCallback();
     }
 
     @Override
@@ -43,7 +48,7 @@ public class MonitorService extends Service {
         return START_STICKY;
     }
 
-    private void registerReceivers() {
+    private void registerBluetoothReceiver() {
         btReceiver = new BTReceiver();
         IntentFilter btFilter = new IntentFilter();
         btFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
@@ -51,12 +56,44 @@ public class MonitorService extends Service {
         btFilter.addAction("android.bluetooth.device.action.ACL_DISCONNECT_REQUESTED");
         btFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(btReceiver, btFilter);
+    }
 
-        wifiStateReceiver = new WifiStateReceiver();
-        IntentFilter wifiFilter = new IntentFilter();
-        wifiFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-        wifiFilter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
-        registerReceiver(wifiStateReceiver, wifiFilter);
+    private void registerWifiNetworkCallback() {
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return;
+
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build();
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                super.onAvailable(network);
+                Log.d(TAG, "Wi-Fi Network Available. Cancelling timer.");
+                WifiInactivityTimer.getInstance(MonitorService.this).cancelTimer();
+            }
+
+            @Override
+            public void onLost(Network network) {
+                super.onLost(network);
+                Log.d(TAG, "Wi-Fi Network Lost. Checking preferences to start timer.");
+
+                // Validate against your MainActivity's SharedPreferences setup
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MonitorService.this);
+                boolean isAppEnabled = prefs.getBoolean("master_switch_enabled", true);
+                WifiInactivityTimer wifiTimer = WifiInactivityTimer.getInstance(MonitorService.this);
+
+                if (isAppEnabled && wifiTimer.isInactivityEnabled()) {
+                    wifiTimer.startTimer();
+                    Log.d(TAG, "Conditions met. Wi-Fi inactivity timer started.");
+                } else {
+                    Log.d(TAG, "Master switch or Wi-Fi timer is disabled. Timer not started.");
+                }
+            }
+        };
+
+        connectivityManager.registerNetworkCallback(request, networkCallback);
     }
 
     private Notification buildNotification() {
@@ -80,8 +117,12 @@ public class MonitorService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (btReceiver != null) unregisterReceiver(btReceiver);
-        if (wifiStateReceiver != null) unregisterReceiver(wifiStateReceiver);
+        if (btReceiver != null) {
+            unregisterReceiver(btReceiver);
+        }
+        if (connectivityManager != null && networkCallback != null) {
+            connectivityManager.unregisterNetworkCallback(networkCallback);
+        }
     }
 
     @Nullable
