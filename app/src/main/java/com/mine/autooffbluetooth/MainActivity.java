@@ -60,6 +60,11 @@ public class MainActivity extends AppCompatActivity {
         initializeInactivityUI();
         initializeWifiInactivityUI();
 
+        // BTReceiver/WifiStateReceiver only ever fire when dynamically
+        // registered by this running service - a manifest <receiver> for
+        // these actions is never invoked under Android's background limits.
+        ContextCompat.startForegroundService(this, new Intent(this, MonitorService.class));
+
         // Ask for everything the app needs, one prompt at a time
         startPermissionStep(STEP_RUNTIME_PERMS);
     }
@@ -135,8 +140,8 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             int minutes = Integer.parseInt(s.toString());
                             if (inactivityTimer.setInactivityTime(minutes)) {
-                                Log.d("MainActivity", "Time updated to " + minutes + "m. Refreshing timer...");
-                                refreshTimerIfNecessary();
+                                Log.d("MainActivity", "Time updated to " + minutes + "m. Rescheduling timer...");
+                                rescheduleTimerIfNecessary();
                             } else {
                                 Toast.makeText(MainActivity.this, 
                                     "Min: " + InactivityTimer.getMinInactivityMinutes() + " Max: " + InactivityTimer.getMaxInactivityMinutes(), 
@@ -162,6 +167,28 @@ public class MainActivity extends AppCompatActivity {
             if (!BTReceiver.isAnyDeviceConnected(adapter)) {
                 inactivityTimer.startTimer();
                 Log.d("MainActivity", "Timer (re)started successfully.");
+            } else {
+                Log.d("MainActivity", "Device connected; timer not started.");
+            }
+        }
+    }
+
+    /**
+     * Used when just the configured duration changes (not a connect/disconnect
+     * event). Keeps the existing disconnect reference time so shortening the
+     * value past the already-elapsed disconnect time applies right away.
+     */
+    private void rescheduleTimerIfNecessary() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean isAppEnabled = prefs.getBoolean(PREF_MASTER_SWITCH, true);
+
+        if (!isAppEnabled) return;
+
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (inactivityTimer.isInactivityEnabled() && adapter != null && adapter.isEnabled()) {
+            if (!BTReceiver.isAnyDeviceConnected(adapter)) {
+                inactivityTimer.rescheduleTimer();
+                Log.d("MainActivity", "Timer rescheduled against existing disconnect window.");
             } else {
                 Log.d("MainActivity", "Device connected; timer not started.");
             }
@@ -270,6 +297,12 @@ public class MainActivity extends AppCompatActivity {
                             != PackageManager.PERMISSION_GRANTED) {
                         needed.add(Manifest.permission.BLUETOOTH_SCAN);
                     }
+                }
+                if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this,
+                        "android.permission.POST_NOTIFICATIONS")
+                        != PackageManager.PERMISSION_GRANTED) {
+                    // Needed for the MonitorService foreground notification to actually show.
+                    needed.add("android.permission.POST_NOTIFICATIONS");
                 }
                 if (!needed.isEmpty()) {
                     // Flow continues in onRequestPermissionsResult()
