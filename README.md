@@ -1,11 +1,15 @@
 # Auto Off Bluetooth
 
-Auto Off Bluetooth is a lightweight utility for Android designed to preserve battery life and increase device security. The app monitors your Bluetooth connection status and automatically turns off the Bluetooth radio after 20 seconds if no devices are connected.
+Auto Off Bluetooth is a lightweight utility for Android designed to preserve battery life and increase device security. The app monitors your Bluetooth and Wi-Fi connection status and automatically turns off either service when no longer in use.
 
 ## How it works
 
-The app listens for Bluetooth state changes in the stack and for Asynchronous Connection-Less disconnection events in the background. When a device disconnects, the app starts a timer. If the timer expires without a reconnection, the app automatically disables the Bluetooth adapter to save power. If a Bluetooth device reconnects, the app postpones the Auto Off task until the next disconnect.
-   
+The app listens for Bluetooth state changes in the stack and for Asynchronous Connection-Less disconnection events and Wi-Fi state changes in the background. When a device disconnects, the app starts a timer. If the timer reaches the specified duration without reconnecting, the app automatically turns off the respective service (Bluetooth or Wi-Fi) to save battery and reduce security risks.
+
+The Bluetooth radio turns off automatically after 20 seconds if no devices are connected.
+
+The Wi-Fi radio automatically turns off if it has not been connected to any SSID for the predefined timeout set in the settings, starting after it disconnects from the last connected SSID.
+
 ## Screenshots
 
 <div align="center">
@@ -14,13 +18,17 @@ The app listens for Bluetooth state changes in the stack and for Asynchronous Co
 
 ## Permissions
 
-The app requires the following permissions to manage your Bluetooth hardware on **Android 6.0 (Marshmallow)** or higher:
+The app requires the following permissions to manage your Bluetooth and Wi-Fi hardware on **Android 6.0 (Marshmallow)** or higher:
 
-* `BLUETOOTH`: Allows the app to see the status of connections.
+* `BLUETOOTH`: Allows the app to see the status of Bluetooth connections.
 * `BLUETOOTH_ADMIN`: Allows the app to toggle the Bluetooth radio on/off.
 * `BLUETOOTH_CONNECT`: To interact with paired devices (required for Android 12+).
 * `BLUETOOTH_SCAN`: Required on Android 12+ to monitor Bluetooth state reliably.
-* **Disable Battery Optimization**: For the background timer to work accurately, it is recommended to exclude the app from battery "Optimization" via the in-app button.
+* `CHANGE_WIFI_STATE`: Allows the app to toggle Wi-Fi on/off.
+* `ACCESS_WIFI_STATE`: Allows the app to monitor Wi-Fi connection state.
+* `ACCESS_FINE_LOCATION`: Required on Android 10+ to scan for available Wi-Fi networks and monitor connection status.
+* **Disable Battery Optimization**: For the background timers to work accurately, it is recommended to exclude the app from battery "Optimization" via the in-app button.
+* **Root Access**: Required on **Android 10 or later** for Wi-Fi toggle functionality.
 
 ## Installation & License
 
