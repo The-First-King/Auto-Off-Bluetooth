@@ -60,9 +60,7 @@ public class MainActivity extends AppCompatActivity {
         initializeInactivityUI();
         initializeWifiInactivityUI();
 
-        // BTReceiver/WifiStateReceiver only ever fire when dynamically
-        // registered by this running service - a manifest <receiver> for
-        // these actions is never invoked under Android's background limits.
+        // BTReceiver/WifiStateReceiver only ever fire when dynamically registered by this running service - a manifest <receiver> for these actions is never invoked under Android's background limits.
         ContextCompat.startForegroundService(this, new Intent(this, MonitorService.class));
 
         // Ask for everything the app needs, one prompt at a time
@@ -275,7 +273,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (!isAppEnabled) return;
 
-        if (wifiInactivityTimer.isInactivityEnabled() && !WifiStateReceiver.isConnectedToAnySSID(this)) {
+        if (wifiInactivityTimer.isInactivityEnabled() && !isConnectedToAnySSID(this)) {
             wifiInactivityTimer.startTimer();
             Log.d("MainActivity", "Wi-Fi timer (re)started successfully.");
         } else {
@@ -359,5 +357,17 @@ public class MainActivity extends AppCompatActivity {
             }
             startPermissionStep(STEP_BATTERY);
         }
+    }
+
+    private boolean isConnectedToAnySSID(Context context) {
+        android.net.wifi.WifiManager wifiManager = (android.net.wifi.WifiManager) context.getApplicationContext()
+                .getSystemService(Context.WIFI_SERVICE);
+        if (wifiManager == null || !wifiManager.isWifiEnabled()) return false;
+
+        android.net.wifi.WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        if (wifiInfo == null || wifiInfo.getNetworkId() == -1) return false;
+
+        String ssid = wifiInfo.getSSID();
+        return ssid != null && !ssid.isEmpty() && !android.net.wifi.WifiManager.UNKNOWN_SSID.equals(ssid);
     }
 }
