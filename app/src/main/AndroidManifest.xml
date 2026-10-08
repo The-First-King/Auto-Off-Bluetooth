@@ -32,14 +32,6 @@
             </intent-filter>
         </activity>
 
-        <!--
-          BTReceiver and WifiStateReceiver are no longer declared here as static
-          receivers - confirmed via an empty logcat capture (on two devices) that
-          ACTION_STATE_CHANGED / WIFI_STATE_CHANGED never reach a manifest-declared
-          receiver under Android's background execution limits (API 26+). They are
-          now registered dynamically at runtime by MonitorService instead.
-        -->
-
         <receiver
             android:name=".InactivityAlarmReceiver"
             android:exported="false" />
@@ -62,5 +54,4 @@
             android:foregroundServiceType="connectedDevice" />
 
     </application>
-
 </manifest>
