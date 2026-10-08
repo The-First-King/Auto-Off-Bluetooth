@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -13,7 +14,8 @@ import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkRequest;
+import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
@@ -23,7 +25,7 @@ import androidx.core.app.NotificationCompat;
 
 /**
  * Keeps BTReceiver alive as a DYNAMICALLY registered receiver.
- * Manages Wi-Fi state monitoring via NetworkCallback for Doze-mode resistance.
+ * Manages Wi-Fi state monitoring via BroadcastReceiver for Doze-mode resistance.
  */
 public class MonitorService extends Service {
 
@@ -32,15 +34,14 @@ public class MonitorService extends Service {
     private static final String TAG = "MonitorService";
 
     private BTReceiver btReceiver;
-    private ConnectivityManager connectivityManager;
-    private ConnectivityManager.NetworkCallback networkCallback;
+    private BroadcastReceiver wifiStateReceiver;
 
     @Override
     public void onCreate() {
         super.onCreate();
         startForeground(NOTIFICATION_ID, buildNotification());
         registerBluetoothReceiver();
-        registerWifiNetworkCallback();
+        registerWifiStateReceiver();
     }
 
     @Override
@@ -58,42 +59,76 @@ public class MonitorService extends Service {
         registerReceiver(btReceiver, btFilter);
     }
 
-    private void registerWifiNetworkCallback() {
-        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (connectivityManager == null) return;
+    private void registerWifiStateReceiver() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+        filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
 
-        NetworkRequest request = new NetworkRequest.Builder()
-                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                .build();
-
-        networkCallback = new ConnectivityManager.NetworkCallback() {
+        wifiStateReceiver = new BroadcastReceiver() {
             @Override
-            public void onAvailable(Network network) {
-                super.onAvailable(network);
-                Log.d(TAG, "Wi-Fi Network Available. Cancelling timer.");
-                WifiInactivityTimer.getInstance(MonitorService.this).cancelTimer();
-            }
-
-            @Override
-            public void onLost(Network network) {
-                super.onLost(network);
-                Log.d(TAG, "Wi-Fi Network Lost. Checking preferences to start timer.");
-
-                // Validate against your MainActivity's SharedPreferences setup
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MonitorService.this);
+            public void onReceive(Context context, Intent intent) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                 boolean isAppEnabled = prefs.getBoolean("master_switch_enabled", true);
-                WifiInactivityTimer wifiTimer = WifiInactivityTimer.getInstance(MonitorService.this);
+                
+                if (!isAppEnabled) {
+                    Log.d(TAG, "Master switch is disabled. Ignoring Wi-Fi broadcast.");
+                    return;
+                }
 
-                if (isAppEnabled && wifiTimer.isInactivityEnabled()) {
-                    wifiTimer.startTimer();
-                    Log.d(TAG, "Conditions met. Wi-Fi inactivity timer started.");
-                } else {
-                    Log.d(TAG, "Master switch or Wi-Fi timer is disabled. Timer not started.");
+                String action = intent.getAction();
+                WifiInactivityTimer timer = WifiInactivityTimer.getInstance(context);
+
+                if (!timer.isInactivityEnabled()) {
+                    Log.d(TAG, "Wi-Fi timer is disabled in settings. Ignoring broadcast.");
+                    return;
+                }
+
+                if (WifiManager.WIFI_STATE_CHANGED_ACTION.equals(action)) {
+                    int state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN);
+                    if (state == WifiManager.WIFI_STATE_ENABLED) {
+                        if (!isWifiConnected(context)) {
+                            timer.startTimer();
+                            Log.d(TAG, "Wi-Fi enabled but not connected. Timer started.");
+                        }
+                    } else if (state == WifiManager.WIFI_STATE_DISABLED) {
+                        timer.cancelTimer();
+                        Log.d(TAG, "Wi-Fi disabled manually. Timer cancelled.");
+                    }
+                } else if (WifiManager.NETWORK_STATE_CHANGED_ACTION.equals(action)) {
+                    NetworkInfo info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+                    if (info != null) {
+                        if (info.isConnected()) {
+                            timer.cancelTimer();
+                            Log.d(TAG, "Connected to SSID. Timer cancelled.");
+                        } else if (info.getState() == NetworkInfo.State.DISCONNECTED) {
+                            WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                            if (wm != null && wm.isWifiEnabled()) {
+                                timer.startTimer();
+                                Log.d(TAG, "Disconnected from SSID. Timer started.");
+                            }
+                        }
+                    }
                 }
             }
         };
+        registerReceiver(wifiStateReceiver, filter);
+    }
 
-        connectivityManager.registerNetworkCallback(request, networkCallback);
+    private boolean isWifiConnected(Context context) {
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network network = cm.getActiveNetwork();
+                if (network != null) {
+                    NetworkCapabilities capabilities = cm.getNetworkCapabilities(network);
+                    return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+                }
+            } else {
+                NetworkInfo info = cm.getActiveNetworkInfo();
+                return info != null && info.getType() == ConnectivityManager.TYPE_WIFI && info.isConnected();
+            }
+        }
+        return false;
     }
 
     private Notification buildNotification() {
@@ -120,8 +155,8 @@ public class MonitorService extends Service {
         if (btReceiver != null) {
             unregisterReceiver(btReceiver);
         }
-        if (connectivityManager != null && networkCallback != null) {
-            connectivityManager.unregisterNetworkCallback(networkCallback);
+        if (wifiStateReceiver != null) {
+            unregisterReceiver(wifiStateReceiver);
         }
     }
 
