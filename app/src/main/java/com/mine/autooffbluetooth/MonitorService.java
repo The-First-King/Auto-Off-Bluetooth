@@ -11,41 +11,39 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.net.wifi.SupplicantState;
-import android.net.wifi.WifiInfo;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
-/**
- * Keeps BTReceiver alive as a DYNAMICALLY registered receiver.
- * Manages Wi-Fi state monitoring via BroadcastReceiver with State Machine for Doze-mode resistance.
- */
 public class MonitorService extends Service {
 
     private static final String CHANNEL_ID = "monitor_service_channel";
     private static final int NOTIFICATION_ID = 1;
     private static final String TAG = "MonitorService";
-    private static final int STATE_UNKNOWN = -1;
-    private static final int STATE_WIFI_OFF = 0;
-    private static final int STATE_WIFI_ON_DISCONNECTED = 1;
-    private static final int STATE_WIFI_ON_CONNECTED = 2;
-
-    private int lastWifiState = STATE_UNKNOWN;
 
     private BTReceiver btReceiver;
     private BroadcastReceiver wifiStateReceiver;
+    
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     @Override
     public void onCreate() {
         super.onCreate();
         startForeground(NOTIFICATION_ID, buildNotification());
+        
         registerBluetoothReceiver();
         registerWifiStateReceiver();
+        registerWifiNetworkCallback();
     }
 
     @Override
@@ -66,61 +64,73 @@ public class MonitorService extends Service {
     private void registerWifiStateReceiver() {
         IntentFilter filter = new IntentFilter();
         filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
-        filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-        filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
 
         wifiStateReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-                boolean isAppEnabled = prefs.getBoolean("master_switch_enabled", true);
+                int state = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN);
                 WifiInactivityTimer timer = WifiInactivityTimer.getInstance(context);
 
-                if (!isAppEnabled || !timer.isInactivityEnabled()) {
-                    lastWifiState = STATE_UNKNOWN;
-                    return;
-                }
-
-                WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-                if (wm == null) return;
-
-                int currentState;
-                if (!wm.isWifiEnabled()) {
-                    currentState = STATE_WIFI_OFF;
-                } else if (isConnectedToAnySSID(wm)) {
-                    currentState = STATE_WIFI_ON_CONNECTED;
-                } else {
-                    currentState = STATE_WIFI_ON_DISCONNECTED;
-                }
-
-                if (lastWifiState == currentState) {
-                    return; 
-                }
-
-                lastWifiState = currentState;
-
-                if (currentState == STATE_WIFI_OFF) {
+                if (state == WifiManager.WIFI_STATE_DISABLED) {
                     timer.cancelTimer();
-                    Log.d(TAG, "Wi-Fi radio is OFF. Timer cancelled.");
-                } else if (currentState == STATE_WIFI_ON_CONNECTED) {
-                    timer.cancelTimer();
-                    Log.d(TAG, "Wi-Fi is connected to an SSID. Timer cancelled.");
-                } else if (currentState == STATE_WIFI_ON_DISCONNECTED) {
-                    timer.startTimer();
-                    Log.d(TAG, "Wi-Fi disconnected from SSID. Timer started ONCE.");
+                    Log.d(TAG, "Wi-Fi radio turned OFF. Timer cancelled.");
+                } else if (state == WifiManager.WIFI_STATE_ENABLED) {
+                    if (!isWifiConnectedToNetwork()) {
+                        checkAndStartTimer();
+                        Log.d(TAG, "Wi-Fi radio turned ON, but no network. Timer started.");
+                    }
                 }
             }
         };
         registerReceiver(wifiStateReceiver, filter);
     }
 
-    private boolean isConnectedToAnySSID(WifiManager wm) {
-        WifiInfo wifiInfo = wm.getConnectionInfo();
-        if (wifiInfo == null) return false;
+    private void registerWifiNetworkCallback() {
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return;
 
-        if (wifiInfo.getNetworkId() == -1) return false;
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build();
 
-        return wifiInfo.getSupplicantState() == SupplicantState.COMPLETED;
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@NonNull Network network) {
+                WifiInactivityTimer.getInstance(MonitorService.this).cancelTimer();
+                Log.d(TAG, "NetworkCallback: Connected to Wi-Fi AP. Timer cancelled.");
+            }
+
+            @Override
+            public void onLost(@NonNull Network network) {
+                Log.d(TAG, "NetworkCallback: Disconnected from Wi-Fi AP.");
+                checkAndStartTimer();
+            }
+        };
+
+        connectivityManager.registerNetworkCallback(request, networkCallback);
+    }
+
+    private void checkAndStartTimer() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean isAppEnabled = prefs.getBoolean("master_switch_enabled", true);
+        WifiInactivityTimer timer = WifiInactivityTimer.getInstance(this);
+
+        if (!isAppEnabled || !timer.isInactivityEnabled()) return;
+
+        WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        
+        if (wm != null && wm.isWifiEnabled()) {
+            timer.startTimer();
+            Log.d(TAG, "Timer started: Device disconnected, but Wi-Fi radio is still ON.");
+        }
+    }
+
+    private boolean isWifiConnectedToNetwork() {
+        if (connectivityManager == null) return false;
+        Network network = connectivityManager.getActiveNetwork();
+        if (network == null) return false;
+        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+        return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
     }
 
     private Notification buildNotification() {
@@ -133,7 +143,7 @@ public class MonitorService extends Service {
         }
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(getString(R.string.app_name))
+                .setContentTitle("AutoOffBluetooth")
                 .setContentText("Monitoring Bluetooth/Wi-Fi activity")
                 .setSmallIcon(R.drawable.ic_bluetooth_status)
                 .setOngoing(true)
@@ -149,6 +159,9 @@ public class MonitorService extends Service {
         }
         if (wifiStateReceiver != null) {
             unregisterReceiver(wifiStateReceiver);
+        }
+        if (connectivityManager != null && networkCallback != null) {
+            connectivityManager.unregisterNetworkCallback(networkCallback);
         }
     }
 
