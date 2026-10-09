@@ -8,7 +8,9 @@ The app listens for Bluetooth state changes in the stack and for Asynchronous Co
 
 The Bluetooth radio turns off automatically after 20 seconds if no devices are connected.
 
-The Wi-Fi radio automatically turns off if it has not been connected to any SSID for the predefined timeout set in the settings, starting after it disconnects from the last connected SSID.
+The Wi-Fi radio automatically turns off if it has not been connected to any SSID for the predefined timeout set in the settings, starting after it disconnects from the last connected SSID or not being connected at all.
+
+The Wi-Fi module automatically turns off if no connection to any SSID is established within the predefined timeout specified in the settings. The countdown for this timeout begins after disconnection from the last SSID or when there is no connection.
 
 ## Screenshots
 
