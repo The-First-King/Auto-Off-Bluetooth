@@ -23,10 +23,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        
-        <activity 
+
+        <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:enabled="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -35,15 +36,19 @@
 
         <receiver
             android:name=".InactivityAlarmReceiver"
-            android:exported="false" />
+            android:exported="false"
+            android:enabled="true" />
 
         <receiver
             android:name=".WifiInactivityAlarmReceiver"
-            android:exported="false" />
+            android:exported="false"
+            android:enabled="true" />
 
         <receiver
             android:name=".BootReceiver"
-            android:exported="true">
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
@@ -52,6 +57,7 @@
         <service
             android:name=".MonitorService"
             android:exported="false"
+            android:enabled="true"
             android:foregroundServiceType="connectedDevice" />
 
     </application>
