@@ -36,14 +36,16 @@ public class MonitorService extends Service {
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
 
+    private boolean isWifiConnected = false;
+
     @Override
     public void onCreate() {
         super.onCreate();
         startForeground(NOTIFICATION_ID, buildNotification());
         
         registerBluetoothReceiver();
-        registerWifiStateReceiver();
         registerWifiNetworkCallback();
+        registerWifiStateReceiver();
     }
 
     @Override
@@ -75,7 +77,7 @@ public class MonitorService extends Service {
                     timer.cancelTimer();
                     Log.d(TAG, "Wi-Fi radio turned OFF. Timer cancelled.");
                 } else if (state == WifiManager.WIFI_STATE_ENABLED) {
-                    if (!isWifiConnectedToNetwork()) {
+                    if (!isWifiConnected) {
                         checkAndStartTimer();
                         Log.d(TAG, "Wi-Fi radio turned ON, but no network. Timer started.");
                     }
@@ -96,18 +98,24 @@ public class MonitorService extends Service {
         networkCallback = new ConnectivityManager.NetworkCallback() {
             @Override
             public void onAvailable(@NonNull Network network) {
+                isWifiConnected = true;
                 WifiInactivityTimer.getInstance(MonitorService.this).cancelTimer();
                 Log.d(TAG, "NetworkCallback: Connected to Wi-Fi AP. Timer cancelled.");
             }
 
             @Override
             public void onLost(@NonNull Network network) {
+                isWifiConnected = false;
                 Log.d(TAG, "NetworkCallback: Disconnected from Wi-Fi AP.");
                 checkAndStartTimer();
             }
         };
 
-        connectivityManager.registerNetworkCallback(request, networkCallback);
+        try {
+            connectivityManager.registerNetworkCallback(request, networkCallback);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register NetworkCallback. Missing permission?", e);
+        }
     }
 
     private void checkAndStartTimer() {
@@ -125,14 +133,6 @@ public class MonitorService extends Service {
         }
     }
 
-    private boolean isWifiConnectedToNetwork() {
-        if (connectivityManager == null) return false;
-        Network network = connectivityManager.getActiveNetwork();
-        if (network == null) return false;
-        NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
-        return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
-    }
-
     private Notification buildNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -143,7 +143,7 @@ public class MonitorService extends Service {
         }
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("AutoOffBluetooth")
+                .setContentTitle(getString(R.string.app_name))
                 .setContentText("Monitoring Bluetooth/Wi-Fi activity")
                 .setSmallIcon(R.drawable.ic_bluetooth_status)
                 .setOngoing(true)
@@ -161,7 +161,11 @@ public class MonitorService extends Service {
             unregisterReceiver(wifiStateReceiver);
         }
         if (connectivityManager != null && networkCallback != null) {
-            connectivityManager.unregisterNetworkCallback(networkCallback);
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback);
+            } catch (Exception e) {
+                Log.e(TAG, "Error unregistering callback", e);
+            }
         }
     }
 
