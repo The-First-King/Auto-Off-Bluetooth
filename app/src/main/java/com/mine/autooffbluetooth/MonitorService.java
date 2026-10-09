@@ -23,13 +23,19 @@ import androidx.core.app.NotificationCompat;
 
 /**
  * Keeps BTReceiver alive as a DYNAMICALLY registered receiver.
- * Manages Wi-Fi state monitoring via BroadcastReceiver for Doze-mode resistance.
+ * Manages Wi-Fi state monitoring via BroadcastReceiver with State Machine for Doze-mode resistance.
  */
 public class MonitorService extends Service {
 
     private static final String CHANNEL_ID = "monitor_service_channel";
     private static final int NOTIFICATION_ID = 1;
     private static final String TAG = "MonitorService";
+    private static final int STATE_UNKNOWN = -1;
+    private static final int STATE_WIFI_OFF = 0;
+    private static final int STATE_WIFI_ON_DISCONNECTED = 1;
+    private static final int STATE_WIFI_ON_CONNECTED = 2;
+
+    private int lastWifiState = STATE_UNKNOWN;
 
     private BTReceiver btReceiver;
     private BroadcastReceiver wifiStateReceiver;
@@ -61,40 +67,47 @@ public class MonitorService extends Service {
         IntentFilter filter = new IntentFilter();
         filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-        filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION); 
+        filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
 
         wifiStateReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
                 boolean isAppEnabled = prefs.getBoolean("master_switch_enabled", true);
-                
-                if (!isAppEnabled) {
-                    Log.d(TAG, "Master switch is disabled. Ignoring Wi-Fi broadcast.");
-                    return;
-                }
-
                 WifiInactivityTimer timer = WifiInactivityTimer.getInstance(context);
-                if (!timer.isInactivityEnabled()) {
-                    Log.d(TAG, "Wi-Fi timer is disabled in settings. Ignoring broadcast.");
+
+                if (!isAppEnabled || !timer.isInactivityEnabled()) {
+                    lastWifiState = STATE_UNKNOWN;
                     return;
                 }
 
                 WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
                 if (wm == null) return;
 
+                int currentState;
                 if (!wm.isWifiEnabled()) {
-                    timer.cancelTimer();
-                    Log.d(TAG, "Wi-Fi radio is OFF. Timer cancelled.");
-                    return;
+                    currentState = STATE_WIFI_OFF;
+                } else if (isConnectedToAnySSID(wm)) {
+                    currentState = STATE_WIFI_ON_CONNECTED;
+                } else {
+                    currentState = STATE_WIFI_ON_DISCONNECTED;
                 }
 
-                if (isConnectedToAnySSID(wm)) {
+                if (lastWifiState == currentState) {
+                    return; 
+                }
+
+                lastWifiState = currentState;
+
+                if (currentState == STATE_WIFI_OFF) {
+                    timer.cancelTimer();
+                    Log.d(TAG, "Wi-Fi radio is OFF. Timer cancelled.");
+                } else if (currentState == STATE_WIFI_ON_CONNECTED) {
                     timer.cancelTimer();
                     Log.d(TAG, "Wi-Fi is connected to an SSID. Timer cancelled.");
-                } else {
+                } else if (currentState == STATE_WIFI_ON_DISCONNECTED) {
                     timer.startTimer();
-                    Log.d(TAG, "Wi-Fi is ON but disconnected from SSID. Timer started.");
+                    Log.d(TAG, "Wi-Fi disconnected from SSID. Timer started ONCE.");
                 }
             }
         };
