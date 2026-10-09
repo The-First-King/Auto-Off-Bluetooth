@@ -93,6 +93,7 @@ public class MonitorService extends Service {
 
         NetworkRequest request = new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build();
 
         networkCallback = new ConnectivityManager.NetworkCallback() {
@@ -113,9 +114,21 @@ public class MonitorService extends Service {
 
         try {
             connectivityManager.registerNetworkCallback(request, networkCallback);
+            
+            if (!isWifiConnectedToNetwork()) {
+                checkAndStartTimer();
+            }
         } catch (Exception e) {
-            Log.e(TAG, "Failed to register NetworkCallback. Missing permission?", e);
+            Log.e(TAG, "Failed to register NetworkCallback", e);
         }
+    }
+
+    private boolean isWifiConnectedToNetwork() {
+        if (connectivityManager == null) return false;
+        Network network = connectivityManager.getActiveNetwork();
+        if (network == null) return false;
+        NetworkCapabilities cap = connectivityManager.getNetworkCapabilities(network);
+        return cap != null && cap.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
     }
 
     private void checkAndStartTimer() {
@@ -145,7 +158,7 @@ public class MonitorService extends Service {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(getString(R.string.app_name))
                 .setContentText("Monitoring Bluetooth/Wi-Fi activity")
-                .setSmallIcon(R.drawable.ic_bluetooth_status)
+                .setSmallIcon(R.drawable.ic_bluetooth_status) 
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
