@@ -10,6 +10,11 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -28,34 +33,26 @@
             </intent-filter>
         </activity>
 
-        <receiver 
-            android:name=".BTReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" /> 
-                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
-                <action android:name="android.bluetooth.device.action.ACL_DISCONNECT_REQUESTED" />
-                <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" /> 
-            </intent-filter>
-        </receiver>
-
         <receiver
             android:name=".InactivityAlarmReceiver"
             android:exported="false" />
 
         <receiver
-            android:name=".WifiStateReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.net.wifi.STATE_CHANGE" />
-                <action android:name="android.net.wifi.WIFI_STATE_CHANGED" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
             android:name=".WifiInactivityAlarmReceiver"
             android:exported="false" />
 
-    </application>
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
+        <service
+            android:name=".MonitorService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+    </application>
 </manifest>

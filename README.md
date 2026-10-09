@@ -8,7 +8,9 @@ The app listens for Bluetooth state changes in the stack and for Asynchronous Co
 
 The Bluetooth radio turns off automatically after 20 seconds if no devices are connected.
 
-The Wi-Fi radio automatically turns off if it has not been connected to any SSID for the predefined timeout set in the settings, starting after it disconnects from the last connected SSID.
+The Wi-Fi radio automatically turns off if it has not been connected to any SSID for the predefined timeout set in the settings, starting after it disconnects from the last connected SSID or not being connected at all.
+
+The Wi-Fi module automatically turns off if no connection to any SSID is established within the predefined timeout specified in the settings. The countdown for this timeout begins after disconnection from the last SSID or when there is no connection.
 
 ## Screenshots
 
@@ -24,11 +26,17 @@ The app requires the following permissions to manage your Bluetooth and Wi-Fi ha
 * `BLUETOOTH_ADMIN`: Allows the app to toggle the Bluetooth radio on/off.
 * `BLUETOOTH_CONNECT`: To interact with paired devices (required for Android 12+).
 * `BLUETOOTH_SCAN`: Required on Android 12+ to monitor Bluetooth state reliably.
-* `CHANGE_WIFI_STATE`: Allows the app to toggle Wi-Fi on/off.
-* `ACCESS_WIFI_STATE`: Allows the app to monitor Wi-Fi connection state.
-* `ACCESS_FINE_LOCATION`: Required on Android 10+ to scan for available Wi-Fi networks and monitor connection status.
-* **Disable Battery Optimization**: For the background timers to work accurately, it is recommended to exclude the app from battery "Optimization" via the in-app button.
-* **Root Access**: Required on **Android 10 or later** for Wi-Fi toggle functionality.
+* `ACCESS_WIFI_STATE`: Allows the app to monitor Wi‑Fi connection state.
+* `CHANGE_WIFI_STATE`: Allows the app to toggle Wi‑Fi on/off.
+* `ACCESS_NETWORK_STATE`: Allows the app to check network connectivity state.
+* `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`: Used to prevent Android from stopping the background timers.
+* `SCHEDULE_EXACT_ALARM`: Required for scheduling the inactivity alarm behavior.
+* `RECEIVE_BOOT_COMPLETED`: Allows the app to restore monitoring after device reboot.
+* `FOREGROUND_SERVICE`: Required for running background monitoring as a foreground service.
+* `FOREGROUND_SERVICE_CONNECTED_DEVICE`: Required for connected-device foreground service behavior.
+* `POST_NOTIFICATIONS`: Required to show status notifications on recent Android versions.
+* **Disable Battery Optimization**: Recommended to exclude the app from battery optimization so background timers work reliably.
+* **Root Access**: Required on Android 10 or later for Wi‑Fi toggle functionality.
 
 ## Installation & License
 

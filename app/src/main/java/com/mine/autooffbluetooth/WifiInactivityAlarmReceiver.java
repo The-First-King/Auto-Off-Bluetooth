@@ -3,46 +3,49 @@ package com.mine.autooffbluetooth;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.net.wifi.SupplicantState;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
-import android.preference.PreferenceManager;
 import android.util.Log;
 
 public class WifiInactivityAlarmReceiver extends BroadcastReceiver {
-
     private static final String TAG = "WifiInactivityAlarm";
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        boolean isAppEnabled = prefs.getBoolean(MainActivity.PREF_MASTER_SWITCH, true);
+        Log.d(TAG, "Wifi Inactivity Alarm triggered.");
 
-        if (!isAppEnabled) {
-            Log.d(TAG, "Master switch is OFF. Ignoring alarm trigger.");
-            return;
-        }
+        WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifiManager != null) {
+            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+            
+            // Verify if the hardware is still authenticated
+            boolean isHardwareConnected = wifiInfo != null 
+                    && wifiInfo.getSupplicantState() == SupplicantState.COMPLETED 
+                    && wifiInfo.getNetworkId() != -1;
 
-        WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-        if (wifiManager == null || !wifiManager.isWifiEnabled()) return;
-
-        if (WifiStateReceiver.isConnectedToAnySSID(context)) {
-            Log.d(TAG, "Timeout reached but Wi-Fi is connected to an SSID. Aborting.");
-            return;
-        }
-
-        Log.d(TAG, "Timeout reached with no SSID connection. Disabling Wi-Fi.");
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            // Pre-Android 10: third-party apps can still toggle Wi-Fi directly.
-            try {
-                wifiManager.setWifiEnabled(false);
-            } catch (SecurityException e) {
-                Log.e(TAG, "Failed to disable Wi-Fi: " + e.getMessage());
+            if (isHardwareConnected) {
+                Log.d(TAG, "Device is still authenticated to router (likely in Doze state). Aborting Wi-Fi shutdown.");
+                return;
             }
-        } else {
-            // Android 10+: Google blocks WifiManager.setWifiEnabled() for third-party apps - root needed.
-            if (!RootUtils.executeRootCommand("svc wifi disable")) {
-                Log.e(TAG, "Failed to disable Wi-Fi via root.");
+
+            Log.d(TAG, "Device genuinely disconnected. Disabling Wi-Fi.");
+            
+            // Execute Wi-Fi shutdown.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+ (API 29+) Root needed to control Wi-Fi
+                try {
+                    Process process = Runtime.getRuntime().exec(new String[]{"su", "-c", "svc wifi disable"});
+                    process.waitFor();
+                    Log.d(TAG, "Wi-Fi disabled via ROOT shell command.");
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to disable Wi-Fi via ROOT. Ensure app has SU permissions.", e);
+                }
+            } else {
+                // Android 9- using API
+                wifiManager.setWifiEnabled(false);
+                Log.d(TAG, "Wi-Fi disabled via standard API.");
             }
         }
     }

@@ -13,7 +13,7 @@ public class InactivityAlarmReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean isAppEnabled = prefs.getBoolean(MainActivity.PREF_MASTER_SWITCH, true);
-        
+
         if (!isAppEnabled) {
             Log.d("InactivityAlarm", "Master switch is OFF. Ignoring alarm trigger.");
             return;
