@@ -319,14 +319,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void continueAfterDialog(int nextStep) {
-        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED)) {
-            startPermissionStep(nextStep);
-        } else {
-            pendingPermissionStep = nextStep;
-        }
-    }
-
     private void ensureBatteryExemption() {
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (pm == null || pm.isIgnoringBatteryOptimizations(getPackageName())) {
