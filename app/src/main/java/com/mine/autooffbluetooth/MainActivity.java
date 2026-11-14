@@ -1,7 +1,6 @@
 package com.mine.autooffbluetooth;
 
 import android.Manifest;
-import android.app.AlarmManager;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
@@ -16,17 +15,17 @@ import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.view.View;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Switch;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.lifecycle.Lifecycle;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -34,6 +33,7 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     public static final String PREF_MASTER_SWITCH = "master_switch_enabled";
+    public static final String PREF_WIFI_ROOT_MODE = "wifi_root_mode_enabled";
 
     // Sequential permission flow
     private static final int STEP_RUNTIME_PERMS = 0;
@@ -48,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private InactivityTimer inactivityTimer;
     private Switch wifiInactivitySwitch;
     private EditText wifiInactivityTimeInput;
+    private CheckBox rootModeCheckBox;
     private WifiInactivityTimer wifiInactivityTimer;
 
     @Override
@@ -60,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
         initializeInactivityUI();
         initializeWifiInactivityUI();
 
-        // BTReceiver/WifiStateReceiver only ever fire when dynamically registered by this running service - a manifest <receiver> for these actions is never invoked under Android's background limits.
+        // BTReceiver/WifiStateReceiver only ever fire when dynamically registered by this running service.
         ContextCompat.startForegroundService(this, new Intent(this, MonitorService.class));
 
         // Ask for everything the app needs, one prompt at a time
@@ -110,11 +111,11 @@ public class MainActivity extends AppCompatActivity {
         if (inactivitySwitch != null && inactivityTimeInput != null) {
             boolean isEnabled = inactivityTimer.isInactivityEnabled();
             int inactivityMinutes = inactivityTimer.getInactivityTime();
-            
+
             inactivitySwitch.setChecked(isEnabled);
             inactivityTimeInput.setText(String.valueOf(inactivityMinutes));
             inactivityTimeInput.setEnabled(isEnabled);
-            
+
             inactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 inactivityTimer.setInactivityEnabled(isChecked);
                 inactivityTimeInput.setEnabled(isChecked);
@@ -129,8 +130,11 @@ public class MainActivity extends AppCompatActivity {
             });
 
             inactivityTimeInput.addTextChangedListener(new TextWatcher() {
-                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {}
 
                 @Override
                 public void afterTextChanged(Editable s) {
@@ -141,9 +145,10 @@ public class MainActivity extends AppCompatActivity {
                                 Log.d("MainActivity", "Time updated to " + minutes + "m. Rescheduling timer...");
                                 rescheduleTimerIfNecessary();
                             } else {
-                                Toast.makeText(MainActivity.this, 
-                                    "Min: " + InactivityTimer.getMinInactivityMinutes() + " Max: " + InactivityTimer.getMaxInactivityMinutes(), 
-                                    Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this,
+                                        "Min: " + InactivityTimer.getMinInactivityMinutes()
+                                                + " Max: " + InactivityTimer.getMaxInactivityMinutes(),
+                                        Toast.LENGTH_SHORT).show();
                             }
                         } catch (NumberFormatException e) {
                             Log.e("MainActivity", "Invalid input");
@@ -196,6 +201,37 @@ public class MainActivity extends AppCompatActivity {
     private void initializeWifiInactivityUI() {
         wifiInactivitySwitch = findViewById(R.id.wifiInactivitySwitch);
         wifiInactivityTimeInput = findViewById(R.id.wifiInactivityTimeInput);
+        rootModeCheckBox = findViewById(R.id.rootModeCheckBox);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        if (rootModeCheckBox != null) {
+            rootModeCheckBox.setChecked(prefs.getBoolean(PREF_WIFI_ROOT_MODE, false));
+            rootModeCheckBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                if (!isChecked) {
+                    prefs.edit().putBoolean(PREF_WIFI_ROOT_MODE, false).apply();
+                    return;
+                }
+
+                // Verify root access off the main thread because the su prompt may wait for user input.
+                rootModeCheckBox.setEnabled(false);
+                Toast.makeText(this, R.string.rootRequiredMessage, Toast.LENGTH_LONG).show();
+
+                Executors.newSingleThreadExecutor().execute(() -> {
+                    boolean granted = RootUtils.requestRootAccess();
+                    runOnUiThread(() -> {
+                        rootModeCheckBox.setEnabled(true);
+                        if (granted) {
+                            prefs.edit().putBoolean(PREF_WIFI_ROOT_MODE, true).apply();
+                        } else {
+                            prefs.edit().putBoolean(PREF_WIFI_ROOT_MODE, false).apply();
+                            rootModeCheckBox.setChecked(false);
+                            Toast.makeText(MainActivity.this, R.string.rootDeniedMessage, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                });
+            });
+        }
 
         if (wifiInactivitySwitch == null || wifiInactivityTimeInput == null) return;
 
@@ -206,31 +242,15 @@ public class MainActivity extends AppCompatActivity {
         wifiInactivityTimeInput.setText(String.valueOf(inactivityMinutes));
         wifiInactivityTimeInput.setEnabled(isEnabled);
 
-        wifiInactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10+ needs root to toggle Wi-Fi. Request it only now, off the main thread since the su prompt can block on user input.
-                wifiInactivitySwitch.setEnabled(false);
-                Toast.makeText(this, R.string.rootRequiredMessage, Toast.LENGTH_LONG).show();
-                Executors.newSingleThreadExecutor().execute(() -> {
-                    boolean granted = RootUtils.requestRootAccess();
-                    runOnUiThread(() -> {
-                        wifiInactivitySwitch.setEnabled(true);
-                        if (granted) {
-                            applyWifiInactivityEnabled(true);
-                        } else {
-                            Toast.makeText(MainActivity.this, R.string.rootDeniedMessage, Toast.LENGTH_LONG).show();
-                            wifiInactivitySwitch.setChecked(false);
-                        }
-                    });
-                });
-            } else {
-                applyWifiInactivityEnabled(isChecked);
-            }
-        });
+        wifiInactivitySwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
+                applyWifiInactivityEnabled(isChecked));
 
         wifiInactivityTimeInput.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
 
             @Override
             public void afterTextChanged(Editable s) {
@@ -242,8 +262,9 @@ public class MainActivity extends AppCompatActivity {
                             refreshWifiTimerIfNecessary();
                         } else {
                             Toast.makeText(MainActivity.this,
-                                "Min: " + WifiInactivityTimer.getMinInactivityMinutes() + " Max: " + WifiInactivityTimer.getMaxInactivityMinutes(),
-                                Toast.LENGTH_SHORT).show();
+                                    "Min: " + WifiInactivityTimer.getMinInactivityMinutes()
+                                            + " Max: " + WifiInactivityTimer.getMaxInactivityMinutes(),
+                                    Toast.LENGTH_SHORT).show();
                         }
                     } catch (NumberFormatException e) {
                         Log.e("MainActivity", "Invalid Wi-Fi inactivity input");
@@ -253,7 +274,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /** Applies the enabled/disabled state after any root check has already been resolved. */
     private void applyWifiInactivityEnabled(boolean enabled) {
         wifiInactivityTimer.setInactivityEnabled(enabled);
         wifiInactivityTimeInput.setEnabled(enabled);
@@ -303,7 +323,6 @@ public class MainActivity extends AppCompatActivity {
                     needed.add("android.permission.POST_NOTIFICATIONS");
                 }
                 if (!needed.isEmpty()) {
-                    // Flow continues in onRequestPermissionsResult()
                     ActivityCompat.requestPermissions(this, needed.toArray(new String[0]),
                             REQ_RUNTIME_PERMS);
                     return;
@@ -335,16 +354,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQ_RUNTIME_PERMS) {
             for (int i = 0; i < permissions.length; i++) {
-                if (Manifest.permission.BLUETOOTH_CONNECT.equals(permissions[i])) {
-                    if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
-                        Toast.makeText(this,
-                                "Bluetooth permissions are needed for the app to work.",
-                                Toast.LENGTH_LONG).show();
-                    }
+                if (Manifest.permission.BLUETOOTH_CONNECT.equals(permissions[i])
+                        && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this,
+                            "Bluetooth permissions are needed for the app to work.",
+                            Toast.LENGTH_LONG).show();
                 }
             }
             startPermissionStep(STEP_BATTERY);
@@ -352,14 +371,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isConnectedToAnySSID(Context context) {
-        android.net.wifi.WifiManager wifiManager = (android.net.wifi.WifiManager) context.getApplicationContext()
-                .getSystemService(Context.WIFI_SERVICE);
+        android.net.wifi.WifiManager wifiManager =
+                (android.net.wifi.WifiManager) context.getApplicationContext()
+                        .getSystemService(Context.WIFI_SERVICE);
         if (wifiManager == null || !wifiManager.isWifiEnabled()) return false;
 
         android.net.wifi.WifiInfo wifiInfo = wifiManager.getConnectionInfo();
         if (wifiInfo == null || wifiInfo.getNetworkId() == -1) return false;
 
         String ssid = wifiInfo.getSSID();
-        return ssid != null && !ssid.isEmpty() && !android.net.wifi.WifiManager.UNKNOWN_SSID.equals(ssid);
+        return ssid != null && !ssid.isEmpty()
+                && !android.net.wifi.WifiManager.UNKNOWN_SSID.equals(ssid);
     }
 }

@@ -1,0 +1,1 @@
+- Reimplemented the Wi‑Fi control feature to work without root. An optional root mode is available as a fallback for devices where lowering the API level to 28 does not work.

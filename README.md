@@ -36,7 +36,7 @@ The app requires the following permissions to manage your Bluetooth and Wi-Fi ha
 * `FOREGROUND_SERVICE_CONNECTED_DEVICE`: Required for connected-device foreground service behavior.
 * `POST_NOTIFICATIONS`: Required to show status notifications on recent Android versions.
 * **Disable Battery Optimization**: Recommended to exclude the app from battery optimization so background timers work reliably.
-* **Root Access**: Required on Android 10 or later for Wi‑Fi toggle functionality.
+* **Root Access**: Optional. The app first attempts to toggle Wi‑Fi using WifiManager. Enable root mode to allow a root-command fallback on devices where the API approach does not work.
 
 ## Installation & License
 
