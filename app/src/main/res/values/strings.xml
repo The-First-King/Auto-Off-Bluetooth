@@ -11,6 +11,7 @@
     <string name="wifiInactivityInputLabel">Input inactivity time (minutes):</string>
     <string name="wifiInactivityHint">1-720</string>
     <string name="wifiInactivityErrorMessage">Please enter a value between 1 and 720</string>
+    <string name="rootModeLabel">Enable root mode</string>
     <string name="rootRequiredMessage">Root access is required to turn off Wi-Fi automatically on Android 10 and above.</string>
-    <string name="rootDeniedMessage">Root access denied or unavailable. Wi-Fi inactivity switcher turned off.</string>
+    <string name="rootDeniedMessage">Root access denied or unavailable. Wi-Fi inactivity switcher may not work.</string>
 </resources>
